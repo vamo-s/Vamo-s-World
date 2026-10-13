@@ -47,7 +47,7 @@ storage con políticas para fotos, migraciones versionadas. Implementar `Supabas
 - Hipótesis comercial (no validada): primer piloto con un solo complejo deportivo de Córdoba.
 
 ## Plano editable (2026-10-13)
-- Cada habitación guarda `layout {x, y, w, d}` en metros enteros aproximados (declarados, no medidos). Campo opcional: no cambia la versión del esquema.
+- Cada habitación guarda `layout {x, y, w, d}` (desde el esquema v3, en centímetros enteros; ver abajo).
 - Sin `layout`, se ubica sola en filas de 3 × 3 m; al editar una por primera vez se fijan todas para que no salten.
 - Mantener apretado 450 ms entra en edición; arrastrar mueve, las manijas ↔ ↕ cambian ancho y largo. Botones +/− y flechas como alternativa accesible.
 - No se permiten superposiciones ni medidas fuera de 1-15 m. Las paredes se dibujan detrás de los pisos, así solo se ven las del contorno.
@@ -55,3 +55,22 @@ storage con políticas para fotos, migraciones versionadas. Implementar `Supabas
 - La ubicación del mueble (`Asset.place`) es relativa a su habitación: si la habitación se mueve, los muebles van con ella; si se achica, se dibujan recortados.
 - Arrastrar un mueble a otra habitación cambia su `spaceId` y deja evento "movido". Mover el objeto desde la ficha lo saca del plano (vuelve a la bandeja "Sin ubicar").
 - Los muebles pueden superponerse (una tele sobre un mueble); las habitaciones no.
+
+## Modo construcción, puertas y cuentas (2026-10-13, esquema v3)
+Organización de la tecnología, pensada como un juego de construcción tipo Sims pero sin motor de juego:
+
+| Capa | Elección | Por qué | Trade-off |
+|---|---|---|---|
+| Unidades | Centímetros enteros en todo el plano (`migrations[2]` multiplica por 100 lo que había en metros) | Muebles y puertas se miden en cm; enteros evitan errores de redondeo | Un cambio de esquema (v3); probado con test de migración |
+| Plano editable | SVG vista desde arriba con `viewBox` en cm (`PlanEditor.tsx`) | Medidas exactas, cotas, texto nítido a cualquier zoom, accesible, cero dependencias | No es 3D; la vista isométrica de la casa sigue para "jugar" |
+| Gestos | Pointer Events propios: un dedo desplaza, dos dedos hacen zoom, rueda en PC; solo se arrastra lo ya elegido | Lo que se toca no se mueve sin querer al desplazarse | Hay que tocar una vez para elegir y después arrastrar |
+| Herramientas | Elegir, Habitación (dibujar rectángulo con imán de 10 cm), Puerta y Ventana (tocar una pared), Mueble (tocar dentro de una habitación) + inspector con campos en cm | Del boceto rápido a la medida exacta en dos pasos | Solo habitaciones rectangulares (una "L" se arma con dos) |
+| Boceto | Foto del dibujo a mano como fondo (reducida a 1200 px JPEG) con ancho real y posición en cm | Calcar el plano encima | Se guarda en el hogar (`household.sketch`) |
+| Aberturas | Entidad `Opening` por lado de habitación (`n/e/s/w`, `offset`, `width`, `height`, bisagras) | Validar que entre en la pared y no pise otra | Una puerta entre dos habitaciones se carga en una sola de ellas |
+| Puerta ↔ inventario | Cada puerta nueva crea su ficha (plantilla Puerta, tenencia "del inmueble"); editar medidas actualiza la ficha; quitarla la archiva | Una sola verdad para el proyecto "Cambiar una puerta" | — |
+| Proyecto DEMO | `ImprovementProject` + catálogo genérico en `catalog.ts`, precios ilustrativos en pesos enteros, sin botón de compra | Cierra el MVP v0.3 sin inventar ofertas reales | Tutorial de colocación vacío a propósito: falta revisión de alguien del oficio |
+| Cuentas | Firebase Authentication (Google) + Cloud Firestore, cargado a demanda (`src/cloud/`) | Gratis en el plan Spark, sin servidor propio, funciona desde GitHub Pages | Depende de Google; los datos quedan en `southamerica-east1` |
+| Datos por usuario | `users/{uid}/state/main` (estado como JSON) + `users/{uid}/blobs/{clave}` (fotos y boceto, para no pasar 1 MiB) | Las reglas permiten leer/escribir solo `request.auth.uid == userId` | Última escritura gana entre dispositivos |
+| Sin conexión | Copia local por usuario en IndexedDB (`vamos-house-<uid>`), subida 1,5 s después del último cambio y al ocultar la app | Se puede jugar sin señal | Si dos dispositivos editan sin conexión a la vez, gana el que guardó último |
+| Invitado → cuenta | Si la cuenta es nueva, se sube la casa del dispositivo; si ya tenía datos, se usan los de la cuenta y la casa de invitado queda intacta | No se pierde nada al entrar | — |
+| Progresión | XP y nivel viven en el estado: viajan con la cuenta. Misiones nuevas: primera puerta en el plano, amueblar a medida | "Subir de nivel" con la propia casa | El nivel es local hasta que se configure Firebase |

@@ -1,13 +1,28 @@
 # Handoff
 
-Estado (2026-10-13): Hito 0 casi completo. Hecho y probado: inventario, mantenimiento, economía, misiones/XP, festividades (ver TESTING.md). Esquema v2.
+Estado (2026-10-13): Hito 0 completo. Esquema v3 (plano en centímetros). Hecho y probado: inventario, mantenimiento, economía, misiones/XP, festividades, modo construcción (habitaciones, puertas, ventanas, muebles a medida, boceto de fondo), proyecto DEMO "Cambiar una puerta". Login con Google y casa por usuario: activo con el proyecto Firebase `vamo-shouse` (falta probarlo en un teléfono real).
 
 Para retomar:
 ```bash
-cd vamos-house && npm install && npm test && npm run dev
+npm install && npm test && npm run dev
 ```
 
-Próximo paso exacto:
-1. Proyecto DEMO "Cambiar una puerta" (cierra el MVP v0.3): entidad `ImprovementProject` con items de un catálogo DEMO (`src/domain/catalog.ts`, marcas genéricas, precios ilustrativos), flujo elegir puerta → ficha y medidas → colocar en habitación → presupuesto DEMO → instalación profesional o propia → herramientas → tutorial placeholder → planificar. Al planificar, habilitar la misión `planificar-mejora` (hoy `progress: () => null` en `src/domain/progress.ts`). Subir esquema a v3 con `migrations[2]` en `src/domain/migrate.ts`.
+## Activar cuentas (Firebase)
+1. En la consola de Firebase: Authentication → Google activado; dominio autorizado `vamo-s.github.io`; Firestore en `southamerica-east1`, modo producción; registrar app web.
+2. Reglas de Firestore:
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+3. Pegar el objeto `firebaseConfig` en `src/cloud/config.ts` (es público; lo que protege son las reglas). PR, merge, y Actions publica.
+4. Probar en el teléfono: Perfil → Entrar con Google → cargar algo → abrir en otro dispositivo con la misma cuenta.
+
+## Próximo paso
+1. Activar cuentas (arriba) y probar sincronización real en dos dispositivos.
 2. Vamo's Pets local (ROADMAP.md, Hito 1).
-3. Publicar: falta cuenta de GitHub o Netlify de Vamo.

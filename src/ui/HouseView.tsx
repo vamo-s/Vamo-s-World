@@ -7,6 +7,8 @@ import { AssetForm } from './AssetForm';
 import { AssetList } from './AssetList';
 import { DemoBadge, Empty, SPACE_ICON, Sheet } from './common';
 import { IsoHouse, type Layer } from './IsoHouse';
+import { PlanEditor } from './PlanEditor';
+import { ProjectsCard } from './DoorProject';
 import { SpaceForm } from './SpaceForm';
 import { TaskDetail, TaskForm, TaskList } from './Tasks';
 import { localDate } from '../domain/dates';
@@ -22,6 +24,7 @@ export function HouseView({ go }: { go: (tab: 'misiones' | 'economia') => void }
   const [taskId, setTaskId] = useState<string>();
   const [layer, setLayer] = useState<Layer>('espacios');
   const [assetId, setAssetId] = useState<string>();
+  const [build, setBuild] = useState(false);
   const h = state.household!;
   const rooms = activeSpaces(state).filter((s) => !s.parentId);
   const live = filterAssets(state, {});
@@ -70,7 +73,10 @@ export function HouseView({ go }: { go: (tab: 'misiones' | 'economia') => void }
       {rooms.length === 0 ? (
         <Empty icon="🧱" title="Tu casa está vacía">
           <p>Empezá por la habitación donde más tiempo pasás.</p>
-          <button className="btn primary" onClick={() => setSheet('newSpace')}>Agregar habitación</button>
+          <div className="actions" style={{ justifyContent: 'center' }}>
+            <button className="btn primary" onClick={() => setBuild(true)}>🏗️ Dibujar mi casa a medida</button>
+            <button className="btn" onClick={() => setSheet('newSpace')}>Agregar habitación sin medidas</button>
+          </div>
         </Empty>
       ) : (
         <>
@@ -81,7 +87,10 @@ export function HouseView({ go }: { go: (tab: 'misiones' | 'economia') => void }
             </div>
             <IsoHouse rooms={rooms} counts={counts} selected={selected} onSelect={setSelected} onOpenAsset={setAssetId} alias={state.player?.alias ?? ''} layer={layer} />
           </div>
-          <button className="btn" onClick={() => setSheet('newSpace')}>＋ Habitación o espacio</button>
+          <div className="actions">
+            <button className="btn primary build-btn" onClick={() => setBuild(true)}>🏗️ Modo construcción</button>
+            <button className="btn" onClick={() => setSheet('newSpace')}>＋ Habitación o espacio</button>
+          </div>
           {live.filter((a) => !a.spaceId).length > 0 && (
             <p className="muted">📦 {live.filter((a) => !a.spaceId).length} objeto(s) sin ubicación: asignalos desde Inventario.</p>
           )}
@@ -93,6 +102,8 @@ export function HouseView({ go }: { go: (tab: 'misiones' | 'economia') => void }
         {state.tasks.length ? <TaskList tasks={state.tasks.filter((t) => t.status !== 'cancelada').slice(0, 50)} onOpen={setTaskId} />
           : <p className="muted">Sin tareas. Anotá algo que tengas pendiente en la casa, sin fecha si no la sabés.</p>}
       </section>
+
+      <ProjectsCard />
 
       {room && !sheet && !assetId && (
         <Sheet title={<>{SPACE_ICON[room.kind]} {room.name} {room.isDemo && <DemoBadge />}</>} onClose={() => setSelected(undefined)}>
@@ -117,6 +128,7 @@ export function HouseView({ go }: { go: (tab: 'misiones' | 'economia') => void }
       {sheet === 'newTask' && <Sheet title="Nueva tarea" onClose={() => setSheet(null)}><TaskForm onDone={() => setSheet(null)} /></Sheet>}
       {taskId && <TaskDetail id={taskId} onClose={() => setTaskId(undefined)} />}
       {assetId && <AssetDetail id={assetId} onClose={() => setAssetId(undefined)} />}
+      {build && <PlanEditor onClose={() => setBuild(false)} />}
     </main>
   );
 }
