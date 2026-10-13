@@ -8,7 +8,7 @@ Numeración: los "hitos" del prompt v0.4 empiezan en 0. Equivalencias abajo.
 - [x] Proyecto DEMO "Cambiar una puerta" + catálogo DEMO + misión "Planificar una mejora". *(antes "Hito 3")*
 - [x] Publicar en URL propia: https://vamo-s.github.io/Vamo-s-World/
 - [x] Modo construcción: plano en cm, boceto de fondo, puertas, ventanas y muebles a medida.
-- [ ] Cuenta con Google y casa por usuario: código listo, falta pegar `firebaseConfig` en `src/cloud/config.ts`.
+- [x] Cuenta con Google y casa por usuario (proyecto Firebase `vamo-shouse`).
 
 ## Hito 1: Vamo's Pets local
 Perfiles (nombre, especie, raza, nacimiento o edad estimada, foto, tutor), rutinas (alimentación, paseos, higiene, medicación, veterinario, vacunas) como tareas reutilizando `MaintenanceTask`, gastos vía `MoneyEntry`, insumos vía `Asset`, misiones de cuidado.

@@ -28,7 +28,9 @@ export function AccountProvider({ children }: { children: (repo: StateRepository
     if (!enabled) return;
     let stop: (() => void) | undefined;
     watchUser(setUser).then((s) => { stop = s; }).catch(() => setUser(null));
-    return () => stop?.();
+    // Sin red (o si Firebase tarda), se entra igual como invitado; si después aparece la sesión, se cambia sola.
+    const t = window.setTimeout(() => setUser((u) => (u === undefined ? null : u)), 4000);
+    return () => { stop?.(); window.clearTimeout(t); };
   }, [enabled]);
 
   const repo = useMemo<StateRepository>(() => (user ? new CloudRepository(user.uid, guestRepo) : guestRepo), [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps

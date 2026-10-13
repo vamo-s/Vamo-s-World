@@ -1,6 +1,6 @@
 # Handoff
 
-Estado (2026-10-13): Hito 0 completo. Esquema v3 (plano en centímetros). Hecho y probado: inventario, mantenimiento, economía, misiones/XP, festividades, modo construcción (habitaciones, puertas, ventanas, muebles a medida, boceto de fondo), proyecto DEMO "Cambiar una puerta". Login con Google y casa por usuario: código listo, desactivado hasta tener la config de Firebase.
+Estado (2026-10-13): Hito 0 completo. Esquema v3 (plano en centímetros). Hecho y probado: inventario, mantenimiento, economía, misiones/XP, festividades, modo construcción (habitaciones, puertas, ventanas, muebles a medida, boceto de fondo), proyecto DEMO "Cambiar una puerta". Login con Google y casa por usuario: activo con el proyecto Firebase `vamo-shouse` (falta probarlo en un teléfono real).
 
 Para retomar:
 ```bash
