@@ -1,3 +1,5 @@
+import { useAccount } from '../cloud/account';
+import { AccountCard } from './AccountCard';
 import { useRef, useState } from 'react';
 import { updateHousehold } from '../domain/inventory';
 import { HOME_TENURE } from '../domain/labels';
@@ -16,7 +18,8 @@ function download(name: string, text: string, type: string) {
 const embedded = (() => { try { return window.self !== window.top; } catch { return true; } })();
 
 const ROADMAP = [
-  ['Proyecto “Cambiar una puerta”', 'Recorrido DEMO completo con catálogo ficticio', 'Próximo'],
+  ['Modo construcción', 'Plano a medida en cm, puertas, ventanas y muebles', 'Hecho'],
+  ['Proyecto “Cambiar una puerta”', 'Recorrido DEMO completo con catálogo ficticio', 'Hecho'],
   ['Vamo’s Pets', 'Fichas y rutinas de tus mascotas, guardadas en el dispositivo', 'Próximo'],
   ['Amigos y casas virtuales', 'Solo lo que elijas mostrar; requiere cuentas', 'Futuro'],
   ['Vamo’s World y Sports', 'Comercios y canchas adheridos, primero en DEMO', 'Futuro'],
@@ -30,11 +33,13 @@ export function ProfileView() {
   const [name, setName] = useState(state.household?.name ?? '');
   const [tenure, setTenure] = useState<HomeTenure>(state.household?.tenure ?? 'alquilada');
   const file = useRef<HTMLInputElement>(null);
+  const { user } = useAccount();
   const stamp = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Argentina/Cordoba' });
 
   return (
     <main className="view">
       <header className="hero"><div><h1>Perfil</h1><p className="muted">Jugador: {state.player?.alias}</p></div></header>
+      <AccountCard />
       <form className="card form" onSubmit={(e) => {
         e.preventDefault();
         if (run((s, c) => updateHousehold(s, c, { alias, name, tenure }))) notify('Guardado');
@@ -53,6 +58,7 @@ export function ProfileView() {
         <h2>Tus datos</h2>
         <p className={saveError ? 'warn' : 'muted'}>
           {saveError ? '⚠️ No se pudo guardar en este dispositivo. Exportá un respaldo ya.'
+            : user ? 'Se guardan en tu cuenta y en este dispositivo. El respaldo JSON sigue sirviendo como copia propia.'
             : 'Se guardan solo en este navegador. Si borrás los datos del navegador o cambiás de teléfono, se pierden: exportá un respaldo seguido.'}
         </p>
         {embedded && <p className="warn">Estás en la vista previa: acá exportar no descarga archivos. En la app publicada o instalada sí.</p>}

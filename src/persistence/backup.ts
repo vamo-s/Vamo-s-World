@@ -31,11 +31,14 @@ export function importJSON(text: string): AppState {
   try { d = migrate(parsed.data, v); } catch (e) { throw new ImportError(e instanceof MigrationError ? e.message : 'No se pudo migrar'); }
 
   const s = { ...emptyState(), ...d, schemaVersion: SCHEMA_VERSION } as AppState;
-  for (const k of ['spaces', 'assets', 'events', 'tasks', 'money', 'budgets', 'holidays', 'xp'] as const) {
+  for (const k of ['spaces', 'assets', 'events', 'tasks', 'money', 'budgets', 'holidays', 'xp', 'openings', 'projects'] as const) {
     if (!Array.isArray(s[k])) throw new ImportError(`Falta la lista "${k}"`);
   }
   if (s.household && (!str(s.household.id) || !str(s.household.name) || !(s.household.tenure in HOME_TENURE))) {
     throw new ImportError('Hogar inválido');
+  }
+  if (s.household?.sketch !== undefined && !(isObj(s.household.sketch) && /^data:image\//.test(String(s.household.sketch.image)))) {
+    throw new ImportError('Boceto inválido');
   }
   if (s.player && (!str(s.player.id) || !str(s.player.alias))) throw new ImportError('Jugador inválido');
   const spaceIds = new Set<string>();
@@ -65,6 +68,13 @@ export function importJSON(text: string): AppState {
   s.money.forEach((m, i) => {
     if (!isObj(m) || !str(m.id) || !(m.type === 'ingreso' || m.type === 'gasto') || typeof m.amount !== 'number' || !Number.isFinite(m.amount) || m.amount <= 0)
       throw new ImportError(`Movimiento ${i + 1}: datos inválidos`);
+  });
+  s.openings.forEach((o, i) => {
+    if (!isObj(o) || !str(o.id) || !spaceIds.has(o.spaceId) || !(o.kind === 'puerta' || o.kind === 'ventana') || !['n', 'e', 's', 'w'].includes(o.side)
+      || ![o.offset, o.width, o.height].every(Number.isInteger)) throw new ImportError(`Abertura ${i + 1}: datos inválidos`);
+  });
+  s.projects.forEach((p, i) => {
+    if (!isObj(p) || !str(p.id) || p.kind !== 'cambiar-puerta' || p.isDemo !== true) throw new ImportError(`Proyecto ${i + 1}: datos inválidos`);
   });
   const keys = new Set<string>();
   for (const e of s.xp) {

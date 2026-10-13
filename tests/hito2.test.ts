@@ -81,11 +81,11 @@ describe('misiones y XP', () => {
     expect(totalXP(s)).toBe(50);
     expect(() => claimMission(s, c, 'registrar-5')).toThrow('Ya reclamaste');
   });
-  it('los objetos DEMO no cuentan y la misión de mejora queda bloqueada', () => {
+  it('los objetos DEMO no cuentan y la misión de mejora pide un proyecto planificado', () => {
     let s = home();
     for (const n of ['a', 'b', 'c', 'd', 'e']) s = addAsset(s, c, { name: n, kind: 'activo', groupId: 'personales', subcategory: 'Libros', templateId: 'generico', tenure: 'propio', origin: 'demo' });
     expect(MISSIONS[0].progress(s)).toEqual({ value: 0, goal: 5 });
-    expect(MISSIONS.find((m) => m.id === 'planificar-mejora')!.progress(s)).toBeNull();
+    expect(MISSIONS.find((m) => m.id === 'planificar-mejora')!.progress(s)).toEqual({ value: 0, goal: 1 });
     expect(() => claimMission(s, c, 'planificar-mejora')).toThrow();
   });
   it('documentar habitación exige 3 objetos y una foto', () => {
@@ -140,11 +140,11 @@ describe('festividades', () => {
   });
 });
 
-describe('migración v1 → v2', () => {
+describe('migraciones', () => {
   it('un respaldo v1 se importa con las listas nuevas vacías y festividades por defecto', () => {
     const v1 = { app: 'vamos-house', schemaVersion: 1, data: { ...home(), schemaVersion: 1, tasks: undefined, money: undefined, budgets: undefined, holidays: undefined, xp: undefined } };
     const s = importJSON(JSON.stringify(v1));
-    expect(s.schemaVersion).toBe(2);
+    expect(s.schemaVersion).toBe(3);
     expect(s.tasks).toEqual([]);
     expect(s.holidays.some((h) => h.isDemo)).toBe(true);
     expect(s.household?.name).toBe('Casa');
@@ -155,6 +155,14 @@ describe('migración v1 → v2', () => {
     expect(() => importJSON(exportJSON(s))).toThrow('duplicadas');
   });
   it('migrate deja schemaVersion actual', () => {
-    expect(migrate({ spaces: [] }, 1).schemaVersion).toBe(2);
+    expect(migrate({ spaces: [] }, 1).schemaVersion).toBe(3);
+  });
+  it('v2 → v3 pasa el plano de metros a centímetros sin perder nada', () => {
+    const d = migrate({ spaces: [{ id: 'a', name: 'Living', layout: { x: 3, y: 0, w: 4.5, d: 3 } }], assets: [{ id: 'm', place: { x: 0.5, y: 1, w: 1.2, d: 0.6 } }, { id: 'n' }] }, 2) as any;
+    expect(d.spaces[0].layout).toEqual({ x: 300, y: 0, w: 450, d: 300 });
+    expect(d.assets[0].place).toEqual({ x: 50, y: 100, w: 120, d: 60 });
+    expect(d.assets[1].place).toBeUndefined();
+    expect(d.openings).toEqual([]);
+    expect(d.projects).toEqual([]);
   });
 });

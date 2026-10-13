@@ -1,11 +1,12 @@
-# Vamo's House 0.2
+# Vamo's House 0.3
 
 Life tycoon: tu casa real, jugada como un tycoon. Web app instalable (PWA) para iPhone y escritorio.
-Sin cuentas, sin nube, sin pagos: los datos quedan en el navegador del dispositivo.
+Sin pagos. Funciona como invitado (datos en el dispositivo) o, cuando se configure Firebase, con cuenta de Google y la casa guardada por usuario.
 
 ## Qué hace hoy
 - Onboarding: alias, tipo de vivienda (propia/alquilada/compartida), nombre del hogar, datos DEMO opcionales.
 - Casa isométrica en SVG con dos capas: Espacios (mantener apretado para mover y cambiar ancho/largo de cada habitación) y Muebles (ubicar y dimensionar los objetos del inventario dentro de cada habitación).
+- Modo construcción (tipo Sims): plano visto desde arriba en centímetros, dibujar habitaciones con el dedo, foto del boceto a mano de fondo para calcar, medidas exactas en el inspector, puertas y ventanas sobre las paredes (con bisagras), muebles a medida. Zoom con dos dedos, rueda o botones.
 - Espacios: crear, editar, archivar; zonas/estantes dentro de un espacio.
 - Inventario universal: 6 grupos, subcategorías ampliables, fichas específicas (puerta, computadora, alimento, prenda) y genérica, tenencia, custodia, estado declarado, costo, foto opcional, historial de eventos. Buscar, filtrar, mover, archivar/restaurar.
 - Respaldo JSON versionado (exportar/importar/restaurar desde el inicio), CSV de inventario, borrar todo.
@@ -13,9 +14,11 @@ Sin cuentas, sin nube, sin pagos: los datos quedan en el navegador del dispositi
 - Economía manual en ARS: ingresos, gastos, categorías, presupuestos mensuales y saldo; lo simulado se muestra aparte.
 - Misiones y XP sin valor monetario, niveles, historial.
 - Festividades: calendario de Argentina configurable, festividad DEMO, reclamo único por año, reglas visibles.
+- Proyecto DEMO "Cambiar una puerta": elegir la puerta, medirla, modelos DEMO compatibles con vista previa a escala, presupuesto ilustrativo, instalación propia o profesional, herramientas y fecha (crea la tarea). No se compra nada.
+- Cuenta con Google (opcional): nivel, XP y casa por usuario en Firestore, con copia local para usar sin señal.
 - PWA: manifest, iconos propios, offline para lo local (service worker).
 
-Falta para cerrar el MVP: proyecto DEMO "Cambiar una puerta". Después: Vamo's Pets (ver ROADMAP.md).
+MVP cerrado. Próximo: activar cuentas (HANDOFF.md) y Vamo's Pets (ROADMAP.md).
 
 ## Requisitos
 Node.js 20 o superior (probado con 22.22) y npm.
@@ -43,14 +46,16 @@ Para probar en la red local sin publicar: `npm run dev` y abrí `http://IP-de-tu
 El build usa rutas relativas, así que funciona en cualquier subcarpeta.
 
 ## Tus datos
-- Viven en IndexedDB de ese navegador. Si borrás los datos de Safari, cambiás de teléfono o usás modo privado, se pierden.
+- Como invitado viven en IndexedDB de ese navegador: si borrás los datos de Safari, cambiás de teléfono o usás modo privado, se pierden.
+- Con cuenta de Google se guardan en Firestore (`users/<tu id>/…`), y las reglas solo te dejan leer y escribir lo tuyo.
 - Perfil > "Exportar respaldo (JSON)" seguido. Se restaura desde Perfil o desde la pantalla de inicio.
-- No cargues información muy sensible: no hay autenticación ni cifrado en esta versión.
+- No cargues información muy sensible: no hay cifrado propio.
 
 ## Estructura
 ```
 src/domain/       reglas puras: tipos, taxonomía, atributos, operaciones de inventario, demo
 src/persistence/  repositorio (IndexedDB / memoria) y respaldo JSON/CSV
+src/cloud/        cuenta Google + Firestore (se carga solo si hay config)
 src/state/        store React: aplica operaciones de dominio y guarda
 src/ui/           pantallas y componentes
 tests/            unitarios (vitest) y e2e (playwright-core)

@@ -1,15 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { IndexedDbRepository } from './persistence/repository';
+import { AccountProvider } from './cloud/account';
 import { StoreProvider } from './state/store';
 import './styles.css';
 
-const repo = new IndexedDbRepository();
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <StoreProvider repo={repo}><App /></StoreProvider>
+    <AccountProvider>{(repo, key) => <StoreProvider key={key} repo={repo}><App /></StoreProvider>}</AccountProvider>
   </StrictMode>,
 );
 

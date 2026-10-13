@@ -38,13 +38,13 @@ await p.screenshot({ path: `${out}/1-casa.png` }); log('2 habitaciones creadas')
   await p.mouse.move(h.x + 60, h.y + 40, { steps: 8 }); await p.mouse.up();
   const txt = await p.locator('.edit-bar strong').innerText();
   const w = Number(txt.match(/(\d+) × (\d+)/)[1]);
-  if (!(w > 3)) throw new Error('el ancho no cambió: ' + txt);
+  if (!(w > 300)) throw new Error('el ancho no cambió: ' + txt);
   await p.getByRole('button', { name: 'Más largo' }).click();
   await p.waitForTimeout(300); await p.screenshot({ path: `${out}/1b-editando-plano.png` });
   await p.getByRole('button', { name: 'Listo' }).click();
   await p.reload();
-  await p.getByRole('button', { name: new RegExp(`^Pieza, 0 objetos, ${w} por 4 metros`) }).waitFor();
-  log(`plano: Pieza estirada a ${w} × 4 m con mantener apretado y persiste`);
+  await p.getByRole('button', { name: new RegExp(`^Pieza, 0 objetos, ${w} por 310 centímetros`) }).waitFor();
+  log(`plano: Pieza estirada a ${w} × 310 cm con mantener apretado y persiste`);
   // un toque corto sigue abriendo la habitación
   await p.getByRole('button', { name: /^Cocina, 0 objetos/ }).click();
   await p.getByText('Nada registrado acá todavía').waitFor();
@@ -88,13 +88,13 @@ await p.getByLabel('Cerrar').click();
 // capa de muebles
 await p.getByRole('tab', { name: /Muebles/ }).click();
 await p.locator('.tray .chips button', { hasText: 'Heladera' }).click();
-await p.locator('.edit-bar').getByText(/Heladera · 1 × 1 m/).waitFor();
+await p.locator('.edit-bar').getByText(/Heladera · 60 × 60 cm/).waitFor();
 await p.getByRole('button', { name: 'Más largo' }).click();
-await p.locator('.edit-bar').getByText(/Heladera · 1 × 1,5 m/).waitFor();
+await p.locator('.edit-bar').getByText(/Heladera · 60 × 65 cm/).waitFor();
 await p.getByRole('button', { name: 'Listo' }).click();
-log('capa muebles: Heladera ubicada en la Cocina y agrandada a 1 × 1,5 m');
+log('capa muebles: Heladera ubicada en la Cocina y agrandada a 60 × 65 cm');
 {
-  const it = await p.getByRole('button', { name: /^Heladera, 1 por 1,5 metros/ }).boundingBox();
+  const it = await p.getByRole('button', { name: /^Heladera, 60 por 65 centímetros/ }).boundingBox();
   const pz = await p.getByRole('button', { name: /^Pieza, / }).boundingBox();
   await p.mouse.move(it.x + it.width / 2, it.y + it.height / 2); await p.mouse.down(); await p.waitForTimeout(650);
   await p.mouse.move(pz.x + pz.width / 2, pz.y + pz.height / 2, { steps: 12 }); await p.mouse.up();
@@ -144,6 +144,76 @@ await p.getByText('Festividad: Festividad DEMO (DEMO)').waitFor(); log('festivid
 await p.waitForTimeout(400); await p.screenshot({ path: `${out}/7-misiones.png` });
 await p.getByRole('button', { name: 'Casa', exact: true }).click();
 await p.waitForTimeout(300); await p.screenshot({ path: `${out}/8-casa-resumen.png`, fullPage: true });
+// modo construcción: dibujar habitación, puerta a medida, mueble a medida
+await p.getByRole('button', { name: /Modo construcción/ }).click();
+await p.getByRole('button', { name: 'Ver toda la casa' }).click();
+await p.getByRole('button', { name: 'Alejar' }).click();
+await p.getByRole('button', { name: 'Alejar' }).click();
+await p.locator('.plan-tools').getByRole('button', { name: 'Habitación' }).click();
+{
+  const sv = await p.locator('svg.plan').boundingBox();
+  await p.mouse.move(sv.x + sv.width * 0.55, sv.y + sv.height * 0.6); await p.mouse.down();
+  await p.mouse.move(sv.x + sv.width * 0.9, sv.y + sv.height * 0.75, { steps: 10 }); await p.mouse.up();
+}
+await p.getByRole('dialog', { name: 'Nueva habitación' }).waitFor();
+await p.getByLabel('Nombre').fill('Quincho');
+await p.locator('.sheet .num input').first().fill('420');
+await p.locator('.sheet .num input').nth(1).fill('350');
+await p.getByRole('button', { name: 'Agregar al plano' }).click();
+await p.locator('svg.plan .p-dims').getByText('420 cm').waitFor(); await p.locator('svg.plan .p-dims').getByText('350 cm').waitFor(); log('modo construcción: Quincho dibujado y ajustado a 420 × 350 cm');
+await p.locator('.inspector').getByLabel('Ancho').waitFor();
+await p.locator('.num', { hasText: 'Ancho' }).locator('input').fill('450');
+await p.locator('.num', { hasText: 'Ancho' }).locator('input').press('Enter');
+await p.locator('svg.plan .p-dims').getByText('450 cm').waitFor(); log('medida exacta desde el inspector: 450 cm');
+{
+  // puerta: tocar el borde de abajo del Quincho
+  await p.locator('.plan-tools').getByRole('button', { name: 'Puerta' }).click();
+  await p.waitForTimeout(200);
+  const q = await p.locator('.p-room .p-floor').last().boundingBox();
+  await p.mouse.click(q.x + q.width / 2, q.y + q.height - 1);
+  await p.getByText('Puerta agregada').waitFor();
+  await p.locator('.num', { hasText: 'Ancho' }).locator('input').fill('70');
+  await p.locator('.num', { hasText: 'Ancho' }).locator('input').press('Enter');
+  await p.locator('.num', { hasText: 'Alto' }).locator('input').fill('200');
+  await p.locator('.num', { hasText: 'Alto' }).locator('input').press('Enter');
+  await p.waitForTimeout(200);
+  log('puerta de 70 × 200 cm en la pared de abajo');
+  // mueble a medida
+  await p.locator('.plan-tools').getByRole('button', { name: 'Mueble' }).click();
+  await p.waitForTimeout(200);
+  await p.mouse.click(q.x + q.width / 2, q.y + q.height / 2);
+  await p.getByLabel('Nombre').fill('Mesa');
+  await p.locator('.sheet .num input').first().fill('160');
+  await p.locator('.sheet .num input').nth(1).fill('90');
+  await p.getByRole('button', { name: 'Agregar', exact: true }).click();
+  await p.getByText('Mesa agregado al plano').waitFor(); log('mueble a medida: Mesa 160 × 90 cm');
+}
+await p.waitForTimeout(300); await p.screenshot({ path: `${out}/9-modo-construccion.png` });
+await p.getByRole('button', { name: '← Listo' }).click();
+// proyecto DEMO puerta
+await p.getByRole('button', { name: '🚪 Cambiar una puerta' }).click();
+await p.locator('.choice-list button', { hasText: 'Puerta Quincho' }).click();
+await p.getByRole('button', { name: 'Siguiente →' }).click();
+await p.getByRole('button', { name: 'Siguiente →' }).click();
+await p.locator('.choice-list button', { hasText: 'Puerta placa genérica 70 cm' }).getByText('Mismas medidas').waitFor();
+await p.locator('.choice-list button', { hasText: 'Puerta placa genérica 70 cm' }).click();
+await p.locator('.door-preview').waitFor();
+await p.getByRole('button', { name: 'Siguiente →' }).click();
+await p.getByRole('button', { name: 'Siguiente →' }).click();
+await p.getByRole('button', { name: /Colocarla yo/ }).click();
+await p.getByText('Destornillador plano y Phillips').waitFor();
+await p.getByRole('button', { name: 'Siguiente →' }).click();
+await p.locator('.sheet input[type=date]').fill('2030-01-15');
+await p.getByRole('button', { name: 'Planificar' }).click();
+await p.getByText('Proyecto planificado').waitFor();
+await p.screenshot({ path: `${out}/10-proyecto-puerta.png` });
+await p.getByLabel('Cerrar').click();
+await p.getByText(/Cambiar Puerta Quincho .* \(proyecto DEMO\)/).first().waitFor(); log('proyecto DEMO planificado: tarea creada con la fecha elegida');
+await p.getByRole('button', { name: 'Misiones', exact: true }).click();
+await p.locator('.missions li', { hasText: 'Planificar una mejora' }).getByRole('button', { name: 'Reclamar' }).click();
+await p.locator('.level-row').getByText('150 XP').waitFor(); log('misión de mejora reclamada: 150 XP');
+await p.getByRole('button', { name: 'Casa', exact: true }).click();
+await p.waitForTimeout(300); await p.screenshot({ path: `${out}/11-casa-iso-puerta.png` });
 // export -> borrar -> import
 await p.getByRole('button', { name: 'Perfil', exact: true }).click();
 const [dl] = await Promise.all([p.waitForEvent('download'), p.getByRole('button', { name: 'Exportar respaldo (JSON)' }).click()]);
@@ -154,8 +224,8 @@ await p.reload(); await p.getByRole('button', { name: 'Entrar a mi casa' }).wait
 await p.locator('input[type=file]').setInputFiles(file);
 await p.getByText('Respaldo importado').waitFor();
 await p.getByRole('button', { name: 'Inventario', exact: true }).click();
-await p.getByText('6 objetos activos').waitFor();
-await p.getByRole('button', { name: 'Misiones', exact: true }).click(); await p.locator('.level-row').getByText('100 XP').waitFor();
+await p.getByText('8 objetos activos').waitFor();
+await p.getByRole('button', { name: 'Misiones', exact: true }).click(); await p.locator('.level-row').getByText('150 XP').waitFor();
 log('importación recupera objetos y XP');
 await p.reload(); await p.getByText('Depto Centro').waitFor(); log('estado importado persiste');
 await ctx.close();

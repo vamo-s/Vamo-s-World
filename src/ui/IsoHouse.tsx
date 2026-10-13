@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { STEP, clampPlace, freeSpot, placeAsset, roomOf, unplaceAsset } from '../domain/furniture';
-import { canPlace, resolveLayout, setSpaceLayout } from '../domain/layout';
+import { MIN_ITEM, STEP, clampPlace, freeSpot, placeAsset, roomOf, unplaceAsset } from '../domain/furniture';
+import { ROOM_STEP, canPlace, resolveLayout, setSpaceLayout } from '../domain/layout';
+import { fitOpening, liveOpenings, openingSegment } from '../domain/openings';
 import type { Asset, Rect, Space } from '../domain/types';
 import { useStore } from '../state/store';
 import { SPACE_ICON } from './common';
 
 // Plano isométrico con dos capas: Espacios (forma de las habitaciones) y Muebles (objetos del inventario).
-// 1 m de grilla = U px a lo ancho y V px a lo alto (proyección 2:1).
+// Todo se guarda en centímetros; 1 m de grilla = U px a lo ancho y V px a lo alto (proyección 2:1).
 const U = 22, V = 11, WALL = 18, BOX = 9, LONG_PRESS = 450, MOVE_TOL = 8;
 const COLORS: Record<string, string> = {
   cocina: '#f6c48f', dormitorio: '#b9c8f5', bano: '#9fe0e0', lavadero: '#c7e8a8', escritorio: '#e5c3f2',
@@ -18,11 +19,11 @@ type Kind = 'room' | 'item';
 type Target = { kind: Kind; id: string };
 type Drag = { mode: 'move' | 'w' | 'd'; sx: number; sy: number; start: Rect };
 
-const P = (gx: number, gy: number): [number, number] => [(gx - gy) * U, (gx + gy) * V];
+const P = (gx: number, gy: number): [number, number] => [((gx - gy) / 100) * U, ((gx + gy) / 100) * V];
 const pts = (...ps: [number, number][]) => ps.map((p) => p.join(',')).join(' ');
 const lift = ([x, y]: [number, number], h: number): [number, number] => [x, y - h];
 const inside = (r: Rect, o: Rect) => r.x >= o.x && r.y >= o.y && r.x + r.w <= o.x + o.w && r.y + r.d <= o.y + o.d;
-const fmtM = (n: number) => String(n).replace('.', ',');
+const cm = (r: Rect) => `${r.w} × ${r.d} cm`;
 
 export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias, layer }: {
   rooms: Space[]; counts: Record<string, number>; selected?: string; alias: string; layer: Layer;
@@ -63,12 +64,13 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
     const rect = target?.kind === 'item' && target.id === a.id && draft ? draft : { x: room.x + p.x, y: room.y + p.y, w: p.w, d: p.d };
     items.push({ asset: a, rect });
   }
+  const openings = liveOpenings(state);
   const unplaced = layer === 'muebles'
     ? state.assets.filter((a) => !a.archivedAt && !a.place && roomOf(state, a.spaceId) && layout[roomOf(state, a.spaceId)!])
     : [];
 
   // Encuadre: todas las habitaciones + margen; al editar habitaciones, 3 m extra para poder crecer.
-  const pad = target?.kind === 'room' ? 3 : 0;
+  const pad = target?.kind === 'room' ? 300 : 0;
   const corners = Object.values(layout).flatMap((r) => [P(r.x - pad, r.y - pad), P(r.x + r.w + pad, r.y - pad), P(r.x + r.w + pad, r.y + r.d + pad), P(r.x - pad, r.y + r.d + pad)]);
   const xs = corners.map((c) => c[0]), ys = corners.map((c) => c[1]);
   const liveBox = `${Math.min(...xs) - 12} ${Math.min(...ys) - WALL - 16} ${Math.max(...xs) - Math.min(...xs) + 24} ${Math.max(...ys) - Math.min(...ys) + WALL + 32}`;
@@ -86,7 +88,7 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
 
   const valid = (t: Target, r: Rect) => {
     if (t.kind === 'room') return canPlace(baseLayout, t.id, r);
-    return r.w >= STEP && r.d >= STEP && !!roomContaining(r);
+    return r.w >= MIN_ITEM && r.d >= MIN_ITEM && !!roomContaining(r);
   };
 
   const commit = (t: Target, r: Rect) => {
@@ -139,10 +141,10 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
     if (!frozenBox.current) frozenBox.current = viewBox;
     const p = toSvg(e.clientX, e.clientY);
     if (Number.isNaN(d.sx)) { d.sx = p.x; d.sy = p.y; return; }
-    const step = target.kind === 'room' ? 1 : STEP;
+    const step = target.kind === 'room' ? ROOM_STEP : STEP;
     const snap = (n: number) => Math.round(n / step) * step;
     const dx = p.x - d.sx, dy = p.y - d.sy;
-    const gx = snap((dx / U + dy / V) / 2), gy = snap((dy / V - dx / U) / 2);
+    const gx = snap(((dx / U + dy / V) / 2) * 100), gy = snap(((dy / V - dx / U) / 2) * 100);
     const s = d.start;
     const cand: Rect = d.mode === 'move' ? { ...s, x: s.x + gx, y: s.y + gy }
       : d.mode === 'w' ? { ...s, w: s.w + gx } : { ...s, d: s.d + gy };
@@ -165,7 +167,7 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
 
   const nudge = (delta: Partial<Rect>) => {
     if (!target || !draft) return;
-    const k = target.kind === 'room' ? 1 : STEP;
+    const k = target.kind === 'room' ? ROOM_STEP : STEP;
     const cand = { x: draft.x + (delta.x ?? 0) * k, y: draft.y + (delta.y ?? 0) * k, w: draft.w + (delta.w ?? 0) * k, d: draft.d + (delta.d ?? 0) * k };
     if (!valid(target, cand)) {
       notify(target.kind === 'room' ? 'No entra: choca con otra habitación o se pasa del tamaño' : 'El mueble tiene que quedar dentro de una habitación');
@@ -186,7 +188,7 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
   const itemOrder = items.slice().sort((a, b) => (a.rect.x + a.rect.w + a.rect.y + a.rect.d) - (b.rect.x + b.rect.w + b.rect.y + b.rect.d));
   const avRoom = rooms.find((r) => r.id === selected) ?? rooms[0];
   const av = layout[avRoom.id];
-  const [avx, avy] = P(av.x + Math.min(1, av.w / 2), av.y + av.d / 2);
+  const [avx, avy] = P(av.x + Math.min(100, av.w / 2), av.y + av.d / 2);
   const editAsset = target?.kind === 'item' ? state.assets.find((a) => a.id === target.id) : undefined;
   const editRoom = target?.kind === 'room' ? rooms.find((r) => r.id === target.id) : undefined;
 
@@ -197,7 +199,7 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
         onPointerMove={onMove} onPointerUp={() => onUp()} onPointerCancel={() => onUp()}
         onPointerDown={() => { if (target) finishEdit(); }}
         onContextMenu={(e) => e.preventDefault()}>
-        {target && <Grid layout={layout} step={target.kind === 'room' ? 1 : STEP} />}
+        {target && <Grid layout={layout} step={target.kind === 'room' ? 100 : 50} />}
         {/* Paredes primero: los pisos de adelante tapan las internas y quedan solo las del contorno. */}
         {order.map((room) => {
           const r = layout[room.id];
@@ -206,6 +208,13 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
             <g key={`w${room.id}`} aria-hidden>
               <polygon points={pts(D, A, lift(A, WALL), lift(D, WALL))} className="wall-l" />
               <polygon points={pts(A, B, lift(B, WALL), lift(A, WALL))} className="wall-r" />
+              {openings.filter((o) => o.spaceId === room.id && (o.side === 'n' || o.side === 'w')).map((o) => {
+                const [x1, y1, x2, y2] = openingSegment(fitOpening(o, r), r);
+                const sill = o.kind === 'puerta' ? 0 : Math.max(0, 210 - o.height);
+                const lo = WALL * Math.min(1, sill / 260), hi = WALL * Math.min(0.95, (sill + o.height) / 260);
+                const a = P(x1, y1), b = P(x2, y2);
+                return <polygon key={o.id} points={pts(lift(a, lo), lift(b, lo), lift(b, hi), lift(a, hi))} className={o.kind === 'puerta' ? 'op-door' : 'op-window'} />;
+              })}
             </g>
           );
         })}
@@ -214,7 +223,7 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
           const editing = target?.kind === 'room' && target.id === room.id;
           return (
             <g key={room.id} className={`room${room.id === selected ? ' sel' : ''}${editing ? ' edit' : ''}`}
-              tabIndex={0} role="button" aria-label={`${room.name}, ${counts[room.id] ?? 0} objetos, ${r.w} por ${r.d} metros`}
+              tabIndex={0} role="button" aria-label={`${room.name}, ${counts[room.id] ?? 0} objetos, ${r.w} por ${r.d} centímetros`}
               onPointerDown={(e) => onDown(e, 'room', room.id)} onPointerUp={(e) => { e.stopPropagation(); onUp('room', room.id); }}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(room.id)}>
               <polygon points={pts(P(r.x, r.y), P(r.x + r.w, r.y), P(r.x + r.w, r.y + r.d), P(r.x, r.y + r.d))} fill={COLORS[room.kind]} className="floor" />
@@ -225,22 +234,26 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
           const r = layout[room.id];
           const n = counts[room.id] ?? 0;
           if (layer === 'muebles') {
-            const [bx, by] = P(r.x + 0.3, r.y + 0.3);
+            const [bx, by] = P(r.x + 30, r.y + 30);
             return <text key={`l${room.id}`} x={bx} y={by + 4} textAnchor="middle" className="room-tag" aria-hidden>{room.name.slice(0, 12)}</text>;
           }
           const [cx, cy] = P(r.x + r.w / 2, r.y + r.d / 2);
-          const maxChars = Math.max(4, Math.round((r.w + r.d) * 2.3));
+          const maxChars = Math.max(4, Math.round(((r.w + r.d) / 100) * 2.3));
           const editing = target?.kind === 'room' && target.id === room.id;
           return (
             <g key={`l${room.id}`} className="labels" aria-hidden>
               <text x={cx} y={cy - 2} textAnchor="middle" className="room-icon">{SPACE_ICON[room.kind]}</text>
               <text x={cx} y={cy + 16} textAnchor="middle" className="room-name">{room.name.length > maxChars ? room.name.slice(0, maxChars - 1) + '…' : room.name}</text>
-              {editing && <text x={cx} y={cy + 30} textAnchor="middle" className="room-dims">{r.w} × {r.d} m</text>}
+              {editing && <text x={cx} y={cy + 30} textAnchor="middle" className="room-dims">{cm(r)}</text>}
               {n > 0 && !editing && (
                 <g transform={`translate(${cx + 24},${cy - 12})`}><circle r="10" className="count" /><text textAnchor="middle" dy="4" className="count-t">{n}</text></g>
               )}
             </g>
           );
+        })}
+        {openings.filter((o) => (o.side === 's' || o.side === 'e') && layout[o.spaceId]).map((o) => {
+          const [x1, y1, x2, y2] = openingSegment(fitOpening(o, layout[o.spaceId]), layout[o.spaceId]);
+          return <polyline key={o.id} points={pts(P(x1, y1), P(x2, y2))} className={`op-floor ${o.kind}`} aria-hidden />;
         })}
         {itemOrder.map(({ asset, rect: r }) => {
           const A = P(r.x, r.y), B = P(r.x + r.w, r.y), C = P(r.x + r.w, r.y + r.d), D = P(r.x, r.y + r.d);
@@ -248,7 +261,7 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
           const [cx, cy] = P(r.x + r.w / 2, r.y + r.d / 2);
           return (
             <g key={asset.id} className={`item${editing ? ' edit' : ''}`} tabIndex={layer === 'muebles' ? 0 : -1} role="button"
-              aria-label={`${asset.name}, ${fmtM(r.w)} por ${fmtM(r.d)} metros`}
+              aria-label={`${asset.name}, ${r.w} por ${r.d} centímetros`}
               onPointerDown={(e) => onDown(e, 'item', asset.id)} onPointerUp={(e) => { e.stopPropagation(); onUp('item', asset.id); }}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpenAsset(asset.id)}>
               <polygon points={pts(D, C, lift(C, BOX), lift(D, BOX))} className="side-l" />
@@ -286,7 +299,7 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
       {target && draft ? (
         <div className="edit-bar" role="toolbar" aria-label="Editar en el plano">
           <strong>
-            {editRoom ? `${SPACE_ICON[editRoom.kind]} ${editRoom.name}` : editAsset?.name} · {fmtM(draft.w)} × {fmtM(draft.d)} m <small>(aprox.)</small>
+            {editRoom ? `${SPACE_ICON[editRoom.kind]} ${editRoom.name}` : editAsset?.name} · {cm(draft)}
           </strong>
           <div className="edit-controls">
             <span>Ancho <button onClick={() => nudge({ w: -1 })} aria-label="Menos ancho">−</button><button onClick={() => nudge({ w: 1 })} aria-label="Más ancho">+</button></span>
@@ -321,10 +334,10 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
   );
 }
 
-/** Grilla alrededor de la casa, visible solo mientras se edita (1 m para espacios, 0,5 m para muebles). */
+/** Grilla alrededor de la casa, visible solo mientras se edita (1 m para espacios, 50 cm para muebles). */
 function Grid({ layout, step }: { layout: Record<string, Rect>; step: number }) {
   const rs = Object.values(layout);
-  const m = step === 1 ? 3 : 0;
+  const m = step === 100 ? 300 : 0;
   const x0 = Math.max(0, Math.min(...rs.map((r) => r.x)) - m), y0 = Math.max(0, Math.min(...rs.map((r) => r.y)) - m);
   const x1 = Math.max(...rs.map((r) => r.x + r.w)) + m, y1 = Math.max(...rs.map((r) => r.y + r.d)) + m;
   const lines: string[] = [];

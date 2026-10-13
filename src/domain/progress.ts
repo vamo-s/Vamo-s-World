@@ -42,8 +42,16 @@ export const MISSIONS: MissionDef[] = [
     progress: (s) => ({ value: live(s.budgets).length ? 1 : 0, goal: 1 }),
   },
   {
-    id: 'planificar-mejora', title: 'Planificar una mejora', description: 'Planificá un proyecto de mejora para tu casa.', xp: 50,
-    progress: () => null, lockedNote: 'Llega con el proyecto de mejora (próximo hito).',
+    id: 'primera-puerta', title: 'Poner una puerta en el plano', description: 'En el Modo construcción, tocá una pared con la herramienta Puerta.', xp: 20,
+    progress: (s) => ({ value: s.openings.some((o) => !o.archivedAt && o.kind === 'puerta') ? 1 : 0, goal: 1 }),
+  },
+  {
+    id: 'amueblar', title: 'Amueblar a medida', description: 'Ubicá 3 muebles reales en el plano con sus medidas.', xp: 30,
+    progress: (s) => ({ value: Math.min(3, live(s.assets).filter((a) => a.place && a.origin !== 'demo').length), goal: 3 }),
+  },
+  {
+    id: 'planificar-mejora', title: 'Planificar una mejora', description: 'Planificá el proyecto DEMO “Cambiar una puerta” con una fecha tuya.', xp: 50,
+    progress: (s) => ({ value: s.projects.some((p) => p.status === 'planificado' || p.status === 'hecho') ? 1 : 0, goal: 1 }),
   },
 ];
 

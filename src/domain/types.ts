@@ -1,6 +1,6 @@
 // Modelo de dominio de Vamo's House. Sin dependencias de UI ni de persistencia.
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** Origen del dato: nunca mezclar lo declarado con lo verificado o lo ficticio. */
 export type DataOrigin = 'declarado' | 'verificado' | 'estimado' | 'demo';
@@ -23,6 +23,17 @@ export interface Household extends Base {
   name: string;
   tenure: HomeTenure;
   isDemo: boolean;
+  /** Foto del boceto a mano, de fondo en el modo construcción para calcar el plano. */
+  sketch?: Sketch;
+}
+
+/** Imagen reducida (data URL) ubicada en el plano: esquina (x, y) y ancho real en cm. */
+export interface Sketch {
+  image: string;
+  x: number;
+  y: number;
+  w: number;
+  opacity: number;
 }
 
 export type SpaceKind =
@@ -36,7 +47,7 @@ export interface Space extends Base {
   /** Zona/estante dentro de otro espacio (jerarquía hogar > espacio > zona). */
   parentId?: string;
   isDemo: boolean;
-  /** Ubicación y tamaño en el plano, en metros aproximados declarados (no medidos). */
+  /** Ubicación y tamaño en el plano, en centímetros declarados por el usuario (no medidos por la app). */
   layout?: Rect;
 }
 
@@ -83,7 +94,7 @@ export interface Asset extends Base {
   attributes: Record<string, AttrValue>;
   /** Foto opcional reducida, guardada localmente como data URL. */
   photo?: string;
-  /** Lugar en el plano, relativo a la habitación (metros aprox., pasos de 0,5). */
+  /** Lugar en el plano relativo a la habitación, en centímetros. */
   place?: Rect;
 }
 
@@ -173,6 +184,40 @@ export interface XPEvent {
   at: string;
 }
 
+export type Side = 'n' | 'e' | 's' | 'w';
+
+/** Puerta o ventana sobre un lado de una habitación. Medidas en centímetros. */
+export interface Opening extends Base {
+  householdId: string;
+  spaceId: string;
+  kind: 'puerta' | 'ventana';
+  side: Side;
+  /** Distancia desde el inicio del lado (n/s desde la izquierda, e/w desde arriba en el plano). */
+  offset: number;
+  width: number;
+  height: number;
+  /** Puerta registrada en el inventario (ficha con medidas, estado, tenencia). */
+  assetId?: string;
+  /** Lado de las bisagras: al inicio o al final del hueco (solo puertas). */
+  hinge?: 'inicio' | 'fin';
+}
+
+export type ProjectStatus = 'borrador' | 'planificado' | 'hecho' | 'cancelado';
+
+/** Proyecto de mejora. En el MVP solo existe "Cambiar una puerta" y todo su catálogo es DEMO. */
+export interface ImprovementProject extends Base {
+  householdId: string;
+  kind: 'cambiar-puerta';
+  title: string;
+  status: ProjectStatus;
+  targetAssetId?: string;
+  productId?: string;
+  install?: 'profesional' | 'propia';
+  plannedDate?: string;
+  taskId?: string;
+  isDemo: true;
+}
+
 export interface AppState {
   schemaVersion: number;
   player: Player | null;
@@ -185,6 +230,8 @@ export interface AppState {
   budgets: Budget[];
   holidays: Holiday[];
   xp: XPEvent[];
+  openings: Opening[];
+  projects: ImprovementProject[];
 }
 
 export const emptyState = (): AppState => ({
@@ -199,6 +246,8 @@ export const emptyState = (): AppState => ({
   budgets: [],
   holidays: defaultHolidays(),
   xp: [],
+  openings: [],
+  projects: [],
 });
 
 const AR = 'Argentina';
