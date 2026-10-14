@@ -234,6 +234,47 @@ await p.getByRole('button', { name: 'Misiones', exact: true }).click(); await p.
 log('importación recupera objetos y XP');
 await p.reload(); await p.getByText('Depto Centro').waitFor(); log('estado importado persiste');
 await ctx.close();
+// plano desde una foto (la IA se simula: se responde lo que devolvería Gemini)
+{
+  const fx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const draw = await fx.newPage();
+  await draw.setContent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="500" style="background:#fffdf5;font:20px sans-serif">
+    <g fill="none" stroke="#223" stroke-width="4"><rect x="60" y="40" width="300" height="240"/><rect x="360" y="40" width="180" height="240"/><rect x="60" y="280" width="140" height="150"/></g>
+    <text x="150" y="160">Living</text><text x="410" y="160">Cocina</text><text x="90" y="360">Baño</text><text x="250" y="30">8,4 m</text></svg>`);
+  const photo = await draw.screenshot(); await draw.close();
+  const f = await fx.newPage();
+  f.on('pageerror', (e) => errs.push(e.message));
+  let calls = 0;
+  await f.route(/firebasevertexai\.googleapis\.com/, (r) => {
+    calls++;
+    const plan = {
+      rooms: [
+        { name: 'Living', kind: 'living', x: 0, y: 0, w: 505, d: 400 },
+        { name: 'Cocina', kind: 'cocina', x: 500, y: 0, w: 300, d: 400 },
+        { name: 'Baño', kind: 'bano', x: 0, y: 400, w: 230, d: 250 },
+      ],
+      openings: [{ room: 0, kind: 'puerta', side: 's', offset: 300, width: 80 }, { room: 1, kind: 'ventana', side: 'n', offset: 90, width: 120 }],
+      box: { x0: 100, y0: 80, x1: 900, y1: 860 }, notes: 'Medidas estimadas a partir del frente de 8,4 m.',
+    };
+    r.fulfill({ contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: JSON.stringify(plan) }] }, finishReason: 'STOP' }] }) });
+  });
+  await f.goto(BASE);
+  await f.getByLabel('Tu alias de jugador').fill('Vamo'); await f.getByLabel('Nombre del hogar').fill('Casa foto');
+  await f.getByRole('button', { name: 'Entrar a mi casa' }).click();
+  await f.getByRole('button', { name: '🤖 Armar el plano con una foto' }).click();
+  await f.locator('.sheet input[type=file]').setInputFiles({ name: 'plano.png', mimeType: 'image/png', buffer: photo });
+  await f.locator('.pr-rooms li').nth(2).waitFor();
+  await f.screenshot({ path: `${out}/12-plano-desde-foto.png` });
+  await f.getByLabel('Frente total').fill('8,4'); await f.getByLabel('Frente total').blur();
+  await f.getByText('Escalado a 8,4 m de frente').waitFor();
+  await f.getByRole('button', { name: 'Usar este plano' }).click();
+  await f.getByText('Plano cargado: 3 habitaciones').waitFor();
+  await f.locator('.p-room').nth(2).waitFor();
+  if ((await f.locator('.p-room').count()) !== 3 || calls !== 1) throw new Error('plano desde foto incompleto');
+  await f.waitForTimeout(300); await f.screenshot({ path: `${out}/13-plano-cargado.png` });
+  log('plano desde una foto: 3 habitaciones, puerta y ventana, escalado a 8,4 m');
+  await fx.close();
+}
 // escritorio
 const d = await b.newPage({ viewport: { width: 1280, height: 800 } });
 await d.goto(BASE);

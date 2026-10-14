@@ -8,7 +8,7 @@ export const cloudEnabled = () => firebaseConfig !== null;
 
 export interface CloudUser { uid: string; name: string; email: string; photo?: string }
 
-let ready: Promise<{ auth: import('firebase/auth').Auth; db: Firestore }> | null = null;
+let ready: Promise<{ app: import('firebase/app').FirebaseApp; auth: import('firebase/auth').Auth; db: Firestore }> | null = null;
 
 export function cloud() {
   if (!firebaseConfig) throw new Error('Firebase sin configurar');
@@ -18,7 +18,7 @@ export function cloud() {
     ]);
     const app = initializeApp(firebaseConfig!);
     const db = initializeFirestore(app, { localCache: persistentLocalCache() });
-    return { auth: getAuth(app), db };
+    return { app, auth: getAuth(app), db };
   })();
   return ready;
 }
