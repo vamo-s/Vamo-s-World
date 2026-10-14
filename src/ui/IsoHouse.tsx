@@ -5,10 +5,11 @@ import { fitOpening, liveOpenings, openingSegment } from '../domain/openings';
 import type { Asset, Rect, Space } from '../domain/types';
 import { useStore } from '../state/store';
 import { SPACE_ICON } from './common';
+import { FurnitureDefs, FurnitureSprite, furnitureHeight, furnitureKind } from './isoFurniture';
 
 // Plano isométrico con dos capas: Espacios (forma de las habitaciones) y Muebles (objetos del inventario).
 // Todo se guarda en centímetros; 1 m de grilla = U px a lo ancho y V px a lo alto (proyección 2:1).
-const U = 22, V = 11, WALL = 18, BOX = 9, LONG_PRESS = 450, MOVE_TOL = 8;
+const U = 22, V = 11, WALL = 32, BOX = 9, LONG_PRESS = 450, MOVE_TOL = 8;
 const COLORS: Record<string, string> = {
   cocina: '#f6c48f', dormitorio: '#b9c8f5', bano: '#9fe0e0', lavadero: '#c7e8a8', escritorio: '#e5c3f2',
   living: '#f5b7b1', garaje: '#cfd3d8', patio: '#a6dba0', deposito: '#e2cfa8', otro: '#e8e2d0',
@@ -66,7 +67,7 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
   }
   const openings = liveOpenings(state);
   const unplaced = layer === 'muebles'
-    ? state.assets.filter((a) => !a.archivedAt && !a.place && roomOf(state, a.spaceId) && layout[roomOf(state, a.spaceId)!])
+    ? state.assets.filter((a) => !a.archivedAt && !a.place && a.templateId !== 'puerta' && roomOf(state, a.spaceId) && layout[roomOf(state, a.spaceId)!])
     : [];
 
   // Encuadre: todas las habitaciones + margen; al editar habitaciones, 3 m extra para poder crecer.
@@ -199,6 +200,7 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
         onPointerMove={onMove} onPointerUp={() => onUp()} onPointerCancel={() => onUp()}
         onPointerDown={() => { if (target) finishEdit(); }}
         onContextMenu={(e) => e.preventDefault()}>
+        <FurnitureDefs />
         {target && <Grid layout={layout} step={target.kind === 'room' ? 100 : 50} />}
         {/* Paredes primero: los pisos de adelante tapan las internas y quedan solo las del contorno. */}
         {order.map((room) => {
@@ -227,6 +229,7 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
               onPointerDown={(e) => onDown(e, 'room', room.id)} onPointerUp={(e) => { e.stopPropagation(); onUp('room', room.id); }}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(room.id)}>
               <polygon points={pts(P(r.x, r.y), P(r.x + r.w, r.y), P(r.x + r.w, r.y + r.d), P(r.x, r.y + r.d))} fill={COLORS[room.kind]} className="floor" />
+              <Tiles r={r} />
             </g>
           );
         })}
@@ -264,10 +267,9 @@ export function IsoHouse({ rooms, counts, selected, onSelect, onOpenAsset, alias
               aria-label={`${asset.name}, ${r.w} por ${r.d} centímetros`}
               onPointerDown={(e) => onDown(e, 'item', asset.id)} onPointerUp={(e) => { e.stopPropagation(); onUp('item', asset.id); }}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpenAsset(asset.id)}>
-              <polygon points={pts(D, C, lift(C, BOX), lift(D, BOX))} className="side-l" />
-              <polygon points={pts(B, C, lift(C, BOX), lift(B, BOX))} className="side-r" />
-              <polygon points={pts(lift(A, BOX), lift(B, BOX), lift(C, BOX), lift(D, BOX))} className="top" />
-              {layer === 'muebles' && <text x={cx} y={cy - BOX + 4} textAnchor="middle" className="item-name">{asset.name.length > 10 ? asset.name.slice(0, 9) + '…' : asset.name}</text>}
+              <FurnitureSprite asset={asset} rect={r} P={P} />
+              {editing && <polygon points={pts(A, B, C, D)} className="item-foot" />}
+              {layer === 'muebles' && <text x={cx} y={cy - furnitureHeight(furnitureKind(asset), r) - 4} textAnchor="middle" className="item-name">{asset.name.length > 10 ? asset.name.slice(0, 9) + '…' : asset.name}</text>}
             </g>
           );
         })}
@@ -344,4 +346,14 @@ function Grid({ layout, step }: { layout: Record<string, Rect>; step: number }) 
   for (let x = x0; x <= x1 + 1e-9; x += step) lines.push(pts(P(x, y0), P(x, y1)));
   for (let y = y0; y <= y1 + 1e-9; y += step) lines.push(pts(P(x0, y), P(x1, y)));
   return <g className="grid" aria-hidden>{lines.map((l, i) => <polyline key={i} points={l} />)}</g>;
+}
+
+/** Baldosas tipo Habbo: damero de 50 cm, sutil, con una línea fina de "piso inteligente". */
+function Tiles({ r }: { r: Rect }) {
+  const t = 50, cells: string[] = [];
+  for (let y = r.y; y < r.y + r.d; y += t) for (let x = r.x + (((y - r.y) / t) % 2) * t; x < r.x + r.w; x += 2 * t) {
+    const x1 = Math.min(x + t, r.x + r.w), y1 = Math.min(y + t, r.y + r.d);
+    cells.push(pts(P(x, y), P(x1, y), P(x1, y1), P(x, y1)));
+  }
+  return <g className="tiles" aria-hidden>{cells.map((c, i) => <polygon key={i} points={c} />)}</g>;
 }

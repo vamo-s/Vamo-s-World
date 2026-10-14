@@ -74,3 +74,9 @@ Organización de la tecnología, pensada como un juego de construcción tipo Sim
 | Sin conexión | Copia local por usuario en IndexedDB (`vamos-house-<uid>`), subida 1,5 s después del último cambio y al ocultar la app | Se puede jugar sin señal | Si dos dispositivos editan sin conexión a la vez, gana el que guardó último |
 | Invitado → cuenta | Si la cuenta es nueva, se sube la casa del dispositivo; si ya tenía datos, se usan los de la cuenta y la casa de invitado queda intacta | No se pierde nada al entrar | — |
 | Progresión | XP y nivel viven en el estado: viajan con la cuenta. Misiones nuevas: primera puerta en el plano, amueblar a medida | "Subir de nivel" con la propia casa | El nivel es local hasta que se configure Firebase |
+
+## Muebles estilo Habbo (2026-10-14)
+- Cada mueble se dibuja con cajas isométricas en SVG (`src/ui/isoFurniture.tsx`): colores planos en tres tonos, contorno oscuro fino y sombra, como Habbo, pero sin sprites ni imágenes (cero descargas extra, nítido en cualquier pantalla).
+- El tipo se deduce del nombre y la subcategoría (cama, sillón, silla, mesa, escritorio, heladera, tele, ropero, planta, lámpara, lavarropas, cocina, inodoro, compu); si no reconoce, es una caja. Respaldo/cabecera van sobre el lado largo de atrás.
+- Toque futurista: pantallas, luces y filos con brillo neón (un solo filtro SVG compartido) que late suave; se apaga con "reducir movimiento". Piso en damero de 50 cm con líneas finas tipo "piso inteligente". Paredes más altas (Habbo).
+- Las puertas no aparecen en la bandeja de muebles: se ubican desde el Modo construcción.
