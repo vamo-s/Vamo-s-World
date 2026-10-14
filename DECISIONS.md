@@ -80,3 +80,9 @@ Organización de la tecnología, pensada como un juego de construcción tipo Sim
 - El tipo se deduce del nombre y la subcategoría (cama, sillón, silla, mesa, escritorio, heladera, tele, ropero, planta, lámpara, lavarropas, cocina, inodoro, compu); si no reconoce, es una caja. Respaldo/cabecera van sobre el lado largo de atrás.
 - Toque futurista: pantallas, luces y filos con brillo neón (un solo filtro SVG compartido) que late suave; se apaga con "reducir movimiento". Piso en damero de 50 cm con líneas finas tipo "piso inteligente". Paredes más altas (Habbo).
 - Las puertas no aparecen en la bandeja de muebles: se ubican desde el Modo construcción.
+
+## Terreno (2026-10-14)
+- El plano tiene un límite visible: el terreno (`household.lot {w, d}` en cm, desde la esquina 0,0). Afuera se oscurece y la cámara no se aleja de él.
+- Sin dato guardado, el terreno abarca la casa con 2 m de margen (mínimo 10 × 10 m), así nadie arranca con habitaciones afuera. Va de 3 a 60 m por lado.
+- Se elige tocando su borde o su nombre: tamaños de ejemplo (Depto 8 × 12, Casa 10 × 20, Casa grande 15 × 30, Terreno amplio 20 × 40), medidas exactas o la manija de la esquina (paso 50 cm).
+- No se puede achicar dejando habitaciones afuera, ni dibujar, mover o agrandar habitaciones fuera de él. Campo opcional: no cambia la versión del esquema.

@@ -25,6 +25,8 @@ export interface Household extends Base {
   isDemo: boolean;
   /** Foto del boceto a mano, de fondo en el modo construcción para calcar el plano. */
   sketch?: Sketch;
+  /** Terreno donde se construye, en cm desde (0, 0). Sin dato, se calcula para que entre lo que hay. */
+  lot?: { w: number; d: number };
 }
 
 /** Imagen reducida (data URL) ubicada en el plano: esquina (x, y) y ancho real en cm. */

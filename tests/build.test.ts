@@ -116,3 +116,18 @@ describe('proyecto DEMO cambiar una puerta', () => {
     expect(s.projects[0].status).toBe('cancelado');
   });
 });
+
+describe('terreno', () => {
+  it('sin dato, abarca la casa con margen; con dato, limita lo que se construye', async () => {
+    const { lotOf, setLot } = await import('../src/domain/layout');
+    let s = house();
+    expect(lotOf(s)).toEqual({ w: 1000, d: 1000 });
+    expect(() => setLot(s, c, { w: 400, d: 1000 })).toThrow('afuera');
+    expect(() => setLot(s, c, { w: 100, d: 1000 })).toThrow('terreno va');
+    s = setLot(s, c, { w: 800, d: 1200 });
+    expect(lotOf(s)).toEqual({ w: 800, d: 1200 });
+    expect(() => addRoomAt(s, c, { name: 'Afuera', kind: 'otro', rect: { x: 500, y: 0, w: 400, d: 300 } })).toThrow('Se sale del terreno');
+    expect(() => setSpaceLayout(s, c, s.spaces[0].id, { x: 0, y: 0, w: 900, d: 350 })).toThrow('Se sale del terreno');
+    expect(importJSON(exportJSON(s)).household!.lot).toEqual({ w: 800, d: 1200 });
+  });
+});

@@ -32,9 +32,40 @@ export function resolveLayout(rooms: Space[]): Record<string, Rect> {
   return out;
 }
 
-/** ¿Este rectángulo es válido para la habitación `id` (límites y sin pisar otra)? */
-export function canPlace(layout: Record<string, Rect>, id: string, r: Rect): boolean {
-  return inBounds(r) && !Object.entries(layout).some(([k, o]) => k !== id && overlaps(o, r));
+export type Lot = { w: number; d: number };
+export const LOT = { min: 300, max: LIMITS.area, step: 50 };
+export const LOT_PRESETS: { name: string; lot: Lot }[] = [
+  { name: 'Depto', lot: { w: 800, d: 1200 } },
+  { name: 'Casa', lot: { w: 1000, d: 2000 } },
+  { name: 'Casa grande', lot: { w: 1500, d: 3000 } },
+  { name: 'Terreno amplio', lot: { w: 2000, d: 4000 } },
+];
+const up = (n: number) => Math.ceil(n / LOT.step) * LOT.step;
+
+/** Terreno actual: el guardado o uno que contenga todas las habitaciones con 2 m de margen (mínimo 10 × 10 m). */
+export function lotOf(s: AppState): Lot {
+  if (s.household?.lot) return s.household.lot;
+  const rs = Object.values(resolveLayout(s.spaces.filter((x) => !x.archivedAt && !x.parentId)));
+  const w = Math.max(1000, ...rs.map((r) => up(r.x + r.w + 200)));
+  const d = Math.max(1000, ...rs.map((r) => up(r.y + r.d + 200)));
+  return { w: Math.min(LOT.max, w), d: Math.min(LOT.max, d) };
+}
+
+export const insideLot = (r: Rect, lot?: Lot) => !lot || (r.x + r.w <= lot.w && r.y + r.d <= lot.d);
+
+/** ¿Este rectángulo es válido para la habitación `id` (límites, terreno y sin pisar otra)? */
+export function canPlace(layout: Record<string, Rect>, id: string, r: Rect, lot?: Lot): boolean {
+  return inBounds(r) && insideLot(r, lot) && !Object.entries(layout).some(([k, o]) => k !== id && overlaps(o, r));
+}
+
+/** Cambia el tamaño del terreno. No puede dejar habitaciones afuera. */
+export function setLot(s: AppState, c: Clock, lot: Lot): AppState {
+  need(s.household, 'Primero creá el hogar');
+  need([lot.w, lot.d].every(Number.isInteger), 'Medidas en centímetros enteros');
+  need(lot.w >= LOT.min && lot.d >= LOT.min && lot.w <= LOT.max && lot.d <= LOT.max, `El terreno va de ${LOT.min / 100} a ${LOT.max / 100} m por lado`);
+  const rs = Object.values(resolveLayout(s.spaces.filter((x) => !x.archivedAt && !x.parentId)));
+  need(rs.every((r) => insideLot(r, lot)), 'Hay habitaciones que quedarían afuera: movelas o achicalas primero');
+  return { ...s, household: { ...s.household!, lot, updatedAt: c.now() } };
 }
 
 /** Guarda la forma de una habitación; fija también las posiciones automáticas de las demás para que no salten. */
@@ -43,6 +74,7 @@ export function setSpaceLayout(s: AppState, c: Clock, id: string, r: Rect): AppS
   need(rooms.some((x) => x.id === id), 'Habitación inexistente');
   const layout = resolveLayout(rooms);
   need(inBounds(r), `Tamaño fuera de rango (cada lado entre ${LIMITS.min} cm y ${LIMITS.max / 100} m)`);
+  need(insideLot(r, s.household?.lot), 'Se sale del terreno: agrandalo desde el Modo construcción');
   need(canPlace(layout, id, r), 'Se superpone con otra habitación');
   layout[id] = r;
   const t = c.now();
@@ -56,6 +88,7 @@ export function setSpaceLayout(s: AppState, c: Clock, id: string, r: Rect): AppS
 export function addRoomAt(s: AppState, c: Clock, input: { name: string; kind: SpaceKind; rect: Rect }): AppState {
   const rooms = s.spaces.filter((x) => !x.archivedAt && !x.parentId);
   need(inBounds(input.rect), `Tamaño fuera de rango (cada lado entre ${LIMITS.min} cm y ${LIMITS.max / 100} m)`);
+  need(insideLot(input.rect, s.household?.lot), 'Se sale del terreno: agrandalo desde el Modo construcción');
   need(!Object.values(resolveLayout(rooms)).some((o) => overlaps(o, input.rect)), 'Se superpone con otra habitación');
   // Fija primero las posiciones automáticas para que la nueva no las desplace.
   const fixed = resolveLayout(rooms);
