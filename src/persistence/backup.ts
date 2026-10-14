@@ -40,6 +40,9 @@ export function importJSON(text: string): AppState {
   if (s.household?.sketch !== undefined && !(isObj(s.household.sketch) && /^data:image\//.test(String(s.household.sketch.image)))) {
     throw new ImportError('Boceto inválido');
   }
+  if (s.household?.lot !== undefined && !(isObj(s.household.lot) && Number.isInteger(s.household.lot.w) && Number.isInteger(s.household.lot.d))) {
+    throw new ImportError('Terreno inválido');
+  }
   if (s.player && (!str(s.player.id) || !str(s.player.alias))) throw new ImportError('Jugador inválido');
   const spaceIds = new Set<string>();
   for (const sp of s.spaces) {

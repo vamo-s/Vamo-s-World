@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { MIN_ITEM, clampPlace, placeAsset, roomOf, unplaceAsset } from '../domain/furniture';
 import { addAsset, archiveSpace, updateAsset, updateSpace } from '../domain/inventory';
 import { SPACE_KINDS } from '../domain/labels';
-import { LIMITS, addRoomAt, canPlace, resolveLayout, setSketch, setSpaceLayout } from '../domain/layout';
+import { LIMITS, LOT, LOT_PRESETS, addRoomAt, canPlace, insideLot, lotOf, resolveLayout, setLot, setSketch, setSpaceLayout, type Lot } from '../domain/layout';
 import {
   OPENING_LIMITS, SIDE_NAME, addOpening, fitOpening, liveOpenings, openingSegment, removeOpening, sideLength, updateOpening,
 } from '../domain/openings';
@@ -15,7 +15,7 @@ import { SPACE_ICON } from './common';
 // sobre el fondo, zoom con dos dedos, la rueda o los botones.
 
 type Tool = 'elegir' | 'habitacion' | 'puerta' | 'ventana' | 'mueble';
-type Sel = { kind: 'room' | 'item' | 'opening'; id: string };
+type Sel = { kind: 'room' | 'item' | 'opening' | 'lot'; id: string };
 type View = { x: number; y: number; w: number };
 type Gesture =
   | { type: 'pan'; px: number; py: number; v: View; tap: { x: number; y: number }; hit?: Sel }
@@ -80,19 +80,28 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
     items.push({ asset: a, rect, roomId: rid });
   }
   const openings = liveOpenings(state).map((o) => (draft?.sel.kind === 'opening' && draft.sel.id === o.id && draft.opening ? draft.opening : o));
+  const baseLot = lotOf(state);
+  const lot: Lot = draft?.sel.kind === 'lot' && draft.rect ? { w: draft.rect.w, d: draft.rect.d } : baseLot;
+  const lotRect: Rect = { x: 0, y: 0, w: lot.w, d: lot.d };
   const unplaced = state.assets.filter((a) => !a.archivedAt && !a.place && a.templateId !== 'puerta' && roomOf(state, a.spaceId));
 
-  // Encuadre inicial: toda la casa con 1 m de margen.
+  // Encuadre inicial: todo el terreno con 1 m de margen.
   const fit = (): View => {
-    const rs = Object.values(baseLayout);
-    if (!rs.length) return { x: -100, y: -100, w: 1000 };
-    const x0 = Math.min(...rs.map((r) => r.x)) - 100, y0 = Math.min(...rs.map((r) => r.y)) - 100;
-    const x1 = Math.max(...rs.map((r) => r.x + r.w)) + 100, y1 = Math.max(...rs.map((r) => r.y + r.d)) + 100;
+    const x0 = -100, y0 = -100, x1 = baseLot.w + 100, y1 = baseLot.d + 100;
     const aspect = size.h / size.w;
     const w = Math.max(x1 - x0, (y1 - y0) / aspect, 300);
     return { x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - (w * aspect) / 2, w };
   };
-  const [view, setView] = useState<View>(fit);
+  const [view, setViewRaw] = useState<View>(fit);
+  // La cámara no se aleja del terreno: el centro queda dentro de él (con 2 m de margen) y no se puede alejar de más.
+  const setView = (next: View | ((v: View) => View)) => setViewRaw((cur) => {
+    const v = typeof next === 'function' ? next(cur) : next;
+    const aspect = size.h / size.w;
+    const w = Math.min(v.w, Math.max(lot.w + 400, (lot.d + 400) / aspect) * 1.2);
+    const cx = Math.max(-200, Math.min(lot.w + 200, v.x + v.w / 2));
+    const cy = Math.max(-200, Math.min(lot.d + 200, v.y + (v.w * aspect) / 2));
+    return { w, x: cx - w / 2, y: cy - (w * aspect) / 2 };
+  });
   const h = view.w * (size.h / size.w);
   const px = view.w / size.w; // cm por pixel de pantalla
   const font = Math.max(8, 13 * px);
@@ -170,7 +179,7 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
     const p = toCm(e.clientX, e.clientY);
     if (tool === 'habitacion') { gesture.current = { type: 'draw', x0: snap(p.x, 10), y0: snap(p.y, 10) }; return; }
     // Solo se arrastra lo que ya está elegido; si no, el dedo desplaza el plano y un toque elige.
-    if (tool === 'elegir' && hit && sel?.kind === hit.kind && sel.id === hit.id) {
+    if (tool === 'elegir' && hit && hit.kind !== 'lot' && sel?.kind === hit.kind && sel.id === hit.id) {
       const start = hit.kind === 'room' ? layout[hit.id] : hit.kind === 'item' ? items.find((i) => i.asset.id === hit.id)?.rect : openings.find((o) => o.id === hit.id);
       if (start) gesture.current = { type: 'move', sel: hit, x0: p.x, y0: p.y, start, moved: false, px: e.clientX, py: e.clientY };
       return;
@@ -181,7 +190,7 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
   const startResize = (e: React.PointerEvent) => {
     e.stopPropagation();
     if (!sel || sel.kind === 'opening') return;
-    const start = sel.kind === 'room' ? layout[sel.id] : items.find((i) => i.asset.id === sel.id)?.rect;
+    const start = sel.kind === 'lot' ? lotRect : sel.kind === 'room' ? layout[sel.id] : items.find((i) => i.asset.id === sel.id)?.rect;
     if (!start) return;
     svg.current?.setPointerCapture?.(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -189,7 +198,8 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
     gesture.current = { type: 'resize', sel, x0: p.x, y0: p.y, start };
   };
 
-  const validRect = (s: Sel, r: Rect) => s.kind === 'room' ? canPlace(baseLayout, s.id, r)
+  const validLot = (r: Rect) => r.w >= LOT.min && r.d >= LOT.min && r.w <= LOT.max && r.d <= LOT.max && Object.values(baseLayout).every((o) => insideLot(o, r));
+  const validRect = (s: Sel, r: Rect) => s.kind === 'lot' ? validLot(r) : s.kind === 'room' ? canPlace(baseLayout, s.id, r, baseLot)
     : r.w >= MIN_ITEM && r.d >= MIN_ITEM && Object.values(layout).some((o) => inside(r, o));
 
   const onMove = (e: React.PointerEvent) => {
@@ -233,7 +243,7 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
       return;
     }
     if (g.type === 'resize') {
-      const step = g.sel.kind === 'room' ? 10 : 5;
+      const step = g.sel.kind === 'lot' ? LOT.step : g.sel.kind === 'room' ? 10 : 5;
       const s = g.start;
       const cand = { ...s, w: Math.max(step, s.w + snap(p.x - g.x0, step)), d: Math.max(step, s.d + snap(p.y - g.y0, step)) };
       if (validRect(g.sel, cand)) setDraft({ sel: g.sel, rect: cand });
@@ -255,6 +265,7 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
       const r = drawing;
       setDrawing(undefined);
       if (!r || r.w < LIMITS.min || r.d < LIMITS.min) { if (r) notify(`Cada lado necesita al menos ${LIMITS.min} cm`); return; }
+      if (!insideLot(r, baseLot)) { notify('Se sale del terreno: agrandalo tocando su borde'); return; }
       if (!canPlace(baseLayout, '', r)) { notify('Se superpone con otra habitación'); return; }
       setNewRoom(r);
       return;
@@ -265,6 +276,7 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
 
   const commitDraft = (d: NonNullable<typeof draft>) => {
     let ok = true;
+    if (d.sel.kind === 'lot' && d.rect) ok = run((s, c) => setLot(s, c, { w: d.rect!.w, d: d.rect!.d }));
     if (d.sel.kind === 'room' && d.rect) ok = run((s, c) => setSpaceLayout(s, c, d.sel.id, d.rect!));
     if (d.sel.kind === 'item' && d.rect) {
       const hit = Object.entries(layout).find(([, o]) => inside(d.rect!, o));
@@ -311,10 +323,11 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
   const selRoom = sel?.kind === 'room' ? rooms.find((r) => r.id === sel.id) : undefined;
   const selItem = sel?.kind === 'item' ? items.find((i) => i.asset.id === sel.id) : undefined;
   const selOpening = sel?.kind === 'opening' ? openings.find((o) => o.id === sel.id) : undefined;
-  const selRect = selRoom ? layout[selRoom.id] : selItem?.rect;
+  const selLot = sel?.kind === 'lot';
+  const selRect = selLot ? lotRect : selRoom ? layout[selRoom.id] : selItem?.rect;
   useEffect(() => {
-    if (sel && !selRoom && !selItem && !selOpening) setSel(undefined);
-  }, [sel, selRoom, selItem, selOpening]);
+    if (sel && !selLot && !selRoom && !selItem && !selOpening) setSel(undefined);
+  }, [sel, selLot, selRoom, selItem, selOpening]);
 
   const sketch = state.household?.sketch;
   const order = rooms.slice();
@@ -351,6 +364,13 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
           </pattern>
         </defs>
         <rect x={view.x} y={view.y} width={view.w} height={h} fill="url(#g100)" />
+        {/* Terreno: afuera se oscurece; el borde se toca para cambiar su tamaño. */}
+        <path d={`M${view.x - 10} ${view.y - 10}h${view.w + 20}v${h + 20}h${-view.w - 20}z M0 0v${lot.d}h${lot.w}v${-lot.d}z`} className="p-outside" fillRule="evenodd" />
+        <g className={`p-lot${sel?.kind === 'lot' ? ' on' : ''}`} onPointerDown={(e) => onDown(e, tool === 'elegir' ? { kind: 'lot', id: 'lot' } : undefined)}>
+          <rect x={0} y={0} width={lot.w} height={lot.d} className="p-lot-hit" strokeWidth={Math.max(24, 22 * px)} />
+          <rect x={0} y={0} width={lot.w} height={lot.d} className="p-lot-line" strokeWidth={Math.max(2, 2 * px)} strokeDasharray={`${10 * px} ${6 * px}`} />
+          <text x={4 * px} y={-8 * px} fontSize={font * 0.9} className="p-lot-label">🏗️ Terreno · {(lot.w / 100).toLocaleString('es-AR')} × {(lot.d / 100).toLocaleString('es-AR')} m</text>
+        </g>
         {sketch && <image href={sketch.image} x={sketch.x} y={sketch.y} width={sketch.w} opacity={sketch.opacity} preserveAspectRatio="xMinYMin meet" style={{ pointerEvents: 'none' }} />}
 
         {order.map((room) => {
@@ -425,7 +445,7 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
           </g>
         )}
         {drawing && (
-          <g className={`p-draw${canPlace(baseLayout, '', drawing) && drawing.w >= LIMITS.min && drawing.d >= LIMITS.min ? '' : ' bad'}`}>
+          <g className={`p-draw${canPlace(baseLayout, '', drawing, baseLot) && drawing.w >= LIMITS.min && drawing.d >= LIMITS.min ? '' : ' bad'}`}>
             <rect x={drawing.x} y={drawing.y} width={drawing.w} height={drawing.d} strokeWidth={WALL / 2} />
             <Dims r={drawing} px={px} font={font} />
           </g>
@@ -433,7 +453,9 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
       </svg>
 
       <section className="plan-panel">
-        {selRoom && selRect ? (
+        {selLot ? (
+          <LotInspector key={`${lot.w}x${lot.d}`} lot={lot} />
+        ) : selRoom && selRect ? (
           <RoomInspector key={selRoom.id + selRect.x + selRect.y + selRect.w + selRect.d} room={selRoom} rect={selRect}
             onArchive={async () => {
               if (await ask(`¿Archivar ${selRoom.name}? Sus objetos quedan en el inventario, sin ubicación.`, 'Archivar')
@@ -693,6 +715,28 @@ function SketchControls() {
           <button className="btn ghost" onClick={() => run((s, c) => setSketch(s, c, undefined))}>Quitar boceto</button>
         </div>
       )}
+    </div>
+  );
+}
+
+function LotInspector({ lot }: { lot: Lot }) {
+  const { run, notify } = useStore();
+  const set = (l: Lot) => { if (run((s, c) => setLot(s, c, l))) notify(`Terreno de ${l.w / 100} × ${l.d / 100} m`); };
+  return (
+    <div className="inspector">
+      <div className="ins-head"><strong>🏗️ Terreno</strong></div>
+      <div className="chips">
+        {LOT_PRESETS.map((p) => (
+          <button key={p.name} className={p.lot.w === lot.w && p.lot.d === lot.d ? 'on' : ''} onClick={() => set(p.lot)}>
+            {p.name} <small>{p.lot.w / 100} × {p.lot.d / 100} m</small>
+          </button>
+        ))}
+      </div>
+      <div className="nums">
+        <Num label="Frente" value={lot.w} onCommit={(w) => set({ ...lot, w })} />
+        <Num label="Fondo" value={lot.d} onCommit={(d) => set({ ...lot, d })} />
+      </div>
+      <p className="fine">Es el límite donde podés construir. Arrastrá la manija de la esquina o elegí un tamaño. No se puede achicar dejando habitaciones afuera.</p>
     </div>
   );
 }

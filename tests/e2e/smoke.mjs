@@ -147,13 +147,18 @@ await p.waitForTimeout(300); await p.screenshot({ path: `${out}/8-casa-resumen.p
 // modo construcción: dibujar habitación, puerta a medida, mueble a medida
 await p.getByRole('button', { name: /Modo construcción/ }).click();
 await p.getByRole('button', { name: 'Ver toda la casa' }).click();
-await p.getByRole('button', { name: 'Alejar' }).click();
-await p.getByRole('button', { name: 'Alejar' }).click();
+// terreno: se ve, se elige y se agranda con un tamaño de ejemplo
+await p.locator('.p-lot-label').getByText(/Terreno · [0-9,]+ × [0-9,]+ m/).waitFor();
+await p.locator('.p-lot-label').click();
+await p.locator('.plan-panel .chips button', { hasText: 'Casa grande' }).click();
+await p.locator('.p-lot-label').getByText(/Terreno · 15 × 30 m/).waitFor(); log('terreno visible y agrandado a 15 × 30 m');
+await p.getByRole('button', { name: 'Ver toda la casa' }).click();
 await p.locator('.plan-tools').getByRole('button', { name: 'Habitación' }).click();
+await p.waitForTimeout(200);
 {
   const sv = await p.locator('svg.plan').boundingBox();
-  await p.mouse.move(sv.x + sv.width * 0.55, sv.y + sv.height * 0.6); await p.mouse.down();
-  await p.mouse.move(sv.x + sv.width * 0.9, sv.y + sv.height * 0.75, { steps: 10 }); await p.mouse.up();
+  await p.mouse.move(sv.x + sv.width * 0.55, sv.y + sv.height * 0.45); await p.mouse.down();
+  await p.mouse.move(sv.x + sv.width * 0.9, sv.y + sv.height * 0.6, { steps: 10 }); await p.mouse.up();
 }
 await p.getByRole('dialog', { name: 'Nueva habitación' }).waitFor();
 await p.getByLabel('Nombre').fill('Quincho');
