@@ -53,3 +53,9 @@ export const fmtDate = (iso: string) =>
   new Date(iso).toLocaleString('es-AR', { timeZone: 'America/Argentina/Cordoba', dateStyle: 'short', timeStyle: 'short' });
 
 export const fmtARS = (n: number) => n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+
+/** Color de piso de cada tipo de habitación en el plano. */
+export const ROOM_FILL: Record<SpaceKind, string> = {
+  cocina: '#f6c48f', dormitorio: '#b9c8f5', bano: '#9fe0e0', lavadero: '#c7e8a8', escritorio: '#e5c3f2',
+  living: '#f5b7b1', garaje: '#cfd3d8', patio: '#a6dba0', deposito: '#e2cfa8', otro: '#e8e2d0',
+};

@@ -7,6 +7,7 @@ import { AssetForm } from './AssetForm';
 import { AssetList } from './AssetList';
 import { DemoBadge, Empty, SPACE_ICON, Sheet } from './common';
 import { IsoHouse, type Layer } from './IsoHouse';
+import { cloudEnabled } from '../cloud/cloud';
 import { PlanEditor } from './PlanEditor';
 import { ProjectsCard } from './DoorProject';
 import { SpaceForm } from './SpaceForm';
@@ -24,7 +25,7 @@ export function HouseView({ go }: { go: (tab: 'misiones' | 'economia') => void }
   const [taskId, setTaskId] = useState<string>();
   const [layer, setLayer] = useState<Layer>('espacios');
   const [assetId, setAssetId] = useState<string>();
-  const [build, setBuild] = useState(false);
+  const [build, setBuild] = useState<boolean | 'foto'>(false);
   const h = state.household!;
   const rooms = activeSpaces(state).filter((s) => !s.parentId);
   const live = filterAssets(state, {});
@@ -72,9 +73,10 @@ export function HouseView({ go }: { go: (tab: 'misiones' | 'economia') => void }
       </div>
       {rooms.length === 0 ? (
         <Empty icon="🧱" title="Tu casa está vacía">
-          <p>Empezá por la habitación donde más tiempo pasás.</p>
+          <p>{cloudEnabled() ? 'Sacale una foto al plano o a un croquis y la IA arma las habitaciones con medidas.' : 'Empezá por la habitación donde más tiempo pasás.'}</p>
           <div className="actions" style={{ justifyContent: 'center' }}>
-            <button className="btn primary" onClick={() => setBuild(true)}>🏗️ Dibujar mi casa a medida</button>
+            {cloudEnabled() && <button className="btn primary" onClick={() => setBuild('foto')}>🤖 Armar el plano con una foto</button>}
+            <button className={cloudEnabled() ? 'btn' : 'btn primary'} onClick={() => setBuild(true)}>🏗️ Dibujar mi casa a medida</button>
             <button className="btn" onClick={() => setSheet('newSpace')}>Agregar habitación sin medidas</button>
           </div>
         </Empty>
@@ -128,7 +130,7 @@ export function HouseView({ go }: { go: (tab: 'misiones' | 'economia') => void }
       {sheet === 'newTask' && <Sheet title="Nueva tarea" onClose={() => setSheet(null)}><TaskForm onDone={() => setSheet(null)} /></Sheet>}
       {taskId && <TaskDetail id={taskId} onClose={() => setTaskId(undefined)} />}
       {assetId && <AssetDetail id={assetId} onClose={() => setAssetId(undefined)} />}
-      {build && <PlanEditor onClose={() => setBuild(false)} />}
+      {build && <PlanEditor startWithPhoto={build === 'foto'} onClose={() => setBuild(false)} />}
     </main>
   );
 }

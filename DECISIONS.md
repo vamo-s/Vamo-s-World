@@ -86,3 +86,10 @@ Organización de la tecnología, pensada como un juego de construcción tipo Sim
 - Sin dato guardado, el terreno abarca la casa con 2 m de margen (mínimo 10 × 10 m), así nadie arranca con habitaciones afuera. Va de 3 a 60 m por lado.
 - Se elige tocando su borde o su nombre: tamaños de ejemplo (Depto 8 × 12, Casa 10 × 20, Casa grande 15 × 30, Terreno amplio 20 × 40), medidas exactas o la manija de la esquina (paso 50 cm).
 - No se puede achicar dejando habitaciones afuera, ni dibujar, mover o agrandar habitaciones fuera de él. Campo opcional: no cambia la versión del esquema.
+
+## Plano desde una foto (2026-10-14)
+- Dibujar a mano era lento: ahora se saca una foto del plano o croquis y Gemini lo pasa a habitaciones rectangulares en cm, con puertas y ventanas.
+- IA vía Firebase AI Logic con la Gemini Developer API (gratis, sin tarjeta, sin servidor propio ni clave nueva: usa el mismo proyecto `vamo-shouse`). Modelo `gemini-2.5-flash`, con `gemini-2.5-flash-lite` de respaldo si el primero deja de existir. Respuesta en JSON con esquema fijo.
+- La respuesta nunca se guarda directo: `normalizeDraft` redondea a 10 cm, recorta superposiciones chicas (≤ 60 cm, paredes mal dibujadas), descarta lo que no cierra y acomoda las aberturas. El usuario revisa: nombres, tipos, quitar ambientes y escalar todo con el frente real.
+- Al guardar: casa vacía → se usa tal cual; con habitaciones → "Sumar al lado" o "Reemplazar" (archiva las actuales, restaurables). El terreno se agranda solo. La foto queda de fondo como boceto para comparar.
+- Funciona también sin cuenta (la protección real sería App Check; con la cuota gratis el abuso no genera costos).

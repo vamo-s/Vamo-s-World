@@ -7,8 +7,10 @@ import {
   OPENING_LIMITS, SIDE_NAME, addOpening, fitOpening, liveOpenings, openingSegment, removeOpening, sideLength, updateOpening,
 } from '../domain/openings';
 import type { Asset, Opening, Rect, Side, Space, SpaceKind } from '../domain/types';
+import { cloudEnabled } from '../cloud/cloud';
 import { useStore } from '../state/store';
-import { SPACE_ICON } from './common';
+import { PlanFromPhoto } from './PlanFromPhoto';
+import { ROOM_FILL as FILL, SPACE_ICON } from './common';
 
 // Modo construcción: plano visto desde arriba, en centímetros reales.
 // Herramientas: elegir/mover, dibujar habitación, puerta, ventana y mueble. Pan con un dedo
@@ -38,10 +40,6 @@ const HINT: Record<Tool, string> = {
   ventana: 'Tocá una pared para poner una ventana.',
   mueble: 'Tocá dentro de una habitación para crear un mueble a medida, o ubicá uno del inventario.',
 };
-const FILL: Record<SpaceKind, string> = {
-  cocina: '#f6c48f', dormitorio: '#b9c8f5', bano: '#9fe0e0', lavadero: '#c7e8a8', escritorio: '#e5c3f2',
-  living: '#f5b7b1', garaje: '#cfd3d8', patio: '#a6dba0', deposito: '#e2cfa8', otro: '#e8e2d0',
-};
 const WALL = 12;
 const TAP = 6;
 const snap = (n: number, step: number) => Math.round(n / step) * step;
@@ -50,7 +48,7 @@ const norm = (x0: number, y0: number, x1: number, y1: number): Rect =>
   ({ x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), d: Math.abs(y1 - y0) });
 const m2 = (r: Rect) => ((r.w * r.d) / 10000).toLocaleString('es-AR', { maximumFractionDigits: 1 });
 
-export function PlanEditor({ onClose }: { onClose: () => void }) {
+export function PlanEditor({ onClose, startWithPhoto = false }: { onClose: () => void; startWithPhoto?: boolean }) {
   const { state, run, notify, ask } = useStore();
   const svg = useRef<SVGSVGElement>(null);
   const [tool, setTool] = useState<Tool>('elegir');
@@ -93,6 +91,9 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
     return { x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - (w * aspect) / 2, w };
   };
   const [view, setViewRaw] = useState<View>(fit);
+  const [fromPhoto, setFromPhoto] = useState(startWithPhoto);
+  const [refit, setRefit] = useState(0);
+  useEffect(() => { if (refit) setView(fit()); }, [refit]); // eslint-disable-line react-hooks/exhaustive-deps
   // La cámara no se aleja del terreno: el centro queda dentro de él (con 2 m de margen) y no se puede alejar de más.
   const setView = (next: View | ((v: View) => View)) => setViewRaw((cur) => {
     const v = typeof next === 'function' ? next(cur) : next;
@@ -337,6 +338,7 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
       <header className="plan-top">
         <button className="btn ghost" onClick={onClose}>← Listo</button>
         <strong>Modo construcción</strong>
+        {cloudEnabled() && <button className="btn ai-btn" onClick={() => setFromPhoto(true)}>🤖 Desde foto</button>}
         <div className="zoom">
           <button className="icon-btn" onClick={() => zoomBtn(1 / 1.3)} aria-label="Acercar">＋</button>
           <button className="icon-btn" onClick={() => zoomBtn(1.3)} aria-label="Alejar">－</button>
@@ -485,12 +487,14 @@ export function PlanEditor({ onClose }: { onClose: () => void }) {
         ) : (
           <>
             <p className="fine">{HINT[tool]}</p>
+            {tool === 'habitacion' && cloudEnabled() && <button className="btn" onClick={() => setFromPhoto(true)}>🤖 Armar el plano con una foto</button>}
             {tool === 'habitacion' && <SketchControls />}
           </>
         )}
       </section>
       </div>
 
+      {fromPhoto && <PlanFromPhoto onClose={() => setFromPhoto(false)} onDone={() => { setFromPhoto(false); select(undefined); setTool('elegir'); setRefit((n) => n + 1); }} />}
       {newRoom && <NewRoomSheet rect={newRoom} onDone={(id) => { setNewRoom(undefined); setTool('elegir'); if (id) setSel({ kind: 'room', id }); }} />}
       {newItem && <NewItemSheet at={newItem} roomRect={layout[newItem.roomId]} onDone={(id) => { setNewItem(undefined); setTool('elegir'); if (id) setSel({ kind: 'item', id }); }} />}
     </div>
