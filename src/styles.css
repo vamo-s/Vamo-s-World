@@ -200,10 +200,20 @@ input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea 
 .layers { display: flex; gap: 4px; background: var(--surface-2); border-radius: 12px; padding: 4px; margin: 4px 4px 8px; }
 .layers button { flex: 1; border: 0; background: transparent; border-radius: 9px; padding: 8px; min-height: 40px; cursor: pointer; font-weight: 600; color: var(--muted); }
 .layers button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-.iso .item .top { fill: #fbfaf6; stroke: #6d6253; stroke-width: 1; }
-.iso .item .side-l { fill: #cfc4ad; } .iso .item .side-r { fill: #b6a98e; }
-.iso .item .item-name { font-size: 8px; font-weight: 700; fill: #3a3128; pointer-events: none; }
-.iso .item.edit .top { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 4 3; }
+.iso .item { cursor: pointer; }
+.iso .item-name { font-size: 8px; font-weight: 800; fill: #fff; paint-order: stroke; stroke: #1d1d26; stroke-width: 2.4px; stroke-linejoin: round; pointer-events: none; }
+.iso .item-foot { fill: none; stroke: #3ff0ff; stroke-width: 1.6; stroke-dasharray: 3 2; filter: url(#neon); pointer-events: none; }
+/* Muebles estilo Habbo: caras planas con contorno oscuro fino y acentos neón. */
+.iso .sprite polygon { stroke: #1d1d26; stroke-width: .6; stroke-linejoin: round; }
+.iso .sprite .fx-shadow { fill: rgba(10, 10, 30, .22); stroke: none; }
+.iso .sprite .fx-glow { filter: url(#neon); }
+.iso .sprite .fx-glow polygon { stroke: #0b6f86; }
+.iso .item:hover .sprite, .iso .item:focus-visible .sprite { filter: drop-shadow(0 0 2px #3ff0ff); }
+.iso .tiles polygon { fill: rgba(0, 0, 0, .055); stroke: rgba(63, 240, 255, .16); stroke-width: .4; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .iso .sprite .fx-glow { animation: neon-pulse 3.2s ease-in-out infinite; }
+}
+@keyframes neon-pulse { 50% { opacity: .78; } }
 .iso.layer-espacios .item { opacity: .45; pointer-events: none; }
 .iso.layer-muebles .item { cursor: pointer; }
 .iso.layer-muebles .floor { filter: saturate(.7); }

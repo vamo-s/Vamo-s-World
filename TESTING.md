@@ -4,7 +4,7 @@
 
 ## Ejecutado de verdad
 - `npm run build`: chequeo de tipos estricto + build OK.
-- `npm test`: 58 tests en verde.
+- `npm test`: 59 tests en verde (incluye el reconocimiento de muebles por nombre para el dibujo estilo Habbo).
   - Inventario (10): hogar/espacios, validaciones, archivar espacio, registro rápido, 5 objetos + filtros, mover con evento, estado/tenencia, archivar/restaurar, atributos inválidos, demo marcado.
   - Persistencia (5): IndexedDB guardar/recuperar/borrar, exportar → borrar → importar sin pérdida, rechazos de respaldos inválidos, CSV.
   - Plano (5, en cm): ubicación automática sin superposición, cambiar ancho/largo fijando las demás, rechazo de superposición y rangos, archivada libera lugar, forma en el respaldo.
